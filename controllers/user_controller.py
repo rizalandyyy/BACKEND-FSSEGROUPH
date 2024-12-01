@@ -1,23 +1,28 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import text
 import datetime
-from models.user import User
-from models.secret_question import SecretQuestion
-from models.master_question import MasterQuestion
+from models.user_models.user import User
+from models.user_models.secret_question import SecretQuestion
+from models.user_models.master_question import MasterQuestion
+from models.user_models.avatar_img import AvatarImg
+from models.user_models.address_location import AddressLocation
 from connectors.db import Session
 from flask_jwt_extended import create_access_token, jwt_required
 from bcrypt import gensalt, hashpw
+from werkzeug.utils import secure_filename
+
 
 userBp = Blueprint('userBp',__name__)
 
 # register user
 @userBp.route('/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    if not data or 'username' not in data or 'email' not in data or 'password' not in data or 'role' not in data:
+    data = request.form
+    # return jsonify ({"data": data})
+    if not data or 'username' not in data or 'email' not in data or 'password' not in data or 'role' not in data or 'address' not in data or 'question' not in data or 'answer' not in data:
         return jsonify({
             "success": False,
-            "message": "Missing username, email, password, or role"}), 400
+            "message": "Missing username, email, password, role, or address"}), 400
     
     try:    
         with Session() as session:
@@ -33,16 +38,35 @@ def register():
             "success": False,
             "message": "Email already exists"}), 400
             
-            New_user = User(firstname = data['firstname'], lastname=data['lastname'], username=data['username'], email=data['email'], role=data['role'])
+            New_user = User(firstname = data['firstname'], lastname=data['lastname'], username=data['username'], email=data['email'], role=data['role'], gender=data['gender'], phone_number=data['phone_number'])
             New_user.set_password(data['password'])
             
             session.add(New_user)
+            session.commit()
+            
+            add_address = AddressLocation(user_id=New_user.id, address=data['address'])
+            session.add(add_address)
             session.commit()
             
             secret_question = SecretQuestion(user_id=New_user.id, question_id=data['question'], answer=data['answer'])
             session.add(secret_question)
             session.commit()
             
+            avatar_img = request.files['image']
+            if not avatar_img:
+                return jsonify({
+                    "success": False,
+                    "message": "Error: No image file uploaded"}), 400
+                
+            if avatar_img.filename is not None:
+                filename = secure_filename(avatar_img.filename)
+            mime_type = avatar_img.mimetype
+            img_data = avatar_img.read()
+            
+            add_avatar = AvatarImg(user_id=New_user.id, img=img_data, name=filename, mime_type=mime_type)
+            session.add(add_avatar)
+            session.commit()
+                        
             return jsonify({
             "success": True,
             "message": "User registered successfully"}), 201
@@ -51,6 +75,22 @@ def register():
         return jsonify({
             "success": False,
             "message": "Error registering user",
+            "data": {"error": str(e)}
+        }), 500
+
+@userBp.route('/userprofile' , methods=['GET'])
+def userprofile():
+    try:
+        with Session() as session:
+            user = session.query(User).all()
+            return jsonify({
+            "success": True,
+            "message": "User retrieved successfully",
+            "data": user}), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "Error retrieving user",
             "data": {"error": str(e)}
         }), 500
 

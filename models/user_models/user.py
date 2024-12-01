@@ -9,14 +9,20 @@ class Role_division(enum.Enum):
     seller = "Seller"
     customer = "Customer"
     
+class Gender(enum.Enum):
+    male = "Male"
+    female = "Female"
+    
 class User(Base):
     __tablename__ = 'user'
     
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     firstname = Column(String(255), nullable=False)
     lastname = Column(String(255), nullable=False)
+    gender = Column(Enum(Gender), nullable=False)
     username = Column(String(255), unique=True, nullable = False)
     email = Column(String(255), unique=True, nullable=False)
+    phone_number= Column(Integer, nullable=True)
     password = Column(String(255), nullable=False)
     role = Column(Enum(Role_division), nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
@@ -38,3 +44,8 @@ class User(Base):
         if role not in Role_division.__members__:
             raise ValueError("Invalid role. Must be 'seller' or 'customer'")
         self.role = role
+        
+    def set_gender(self, gender):
+        if gender not in Gender.__members__:
+            raise ValueError("Invalid gender. Must be 'male' or 'female'")
+        self.gender = gender

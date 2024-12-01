@@ -1,9 +1,9 @@
 from flask import Flask, jsonify
 from connectors.db import engine, Base
-from controller.user_controller import userBp
-from controller.master_question_controller import masterBp
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
-import os
+from controllers.user_controller import userBp
+from controllers.master_question_controller import masterBp
+from flask_jwt_extended import JWTManager
+from models import *
 
 Base.metadata.create_all(engine)
 

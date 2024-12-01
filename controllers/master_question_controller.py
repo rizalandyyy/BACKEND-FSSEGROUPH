@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from models.master_question import MasterQuestion
+from models.user_models.master_question import MasterQuestion
 from connectors.db import Session
 
 

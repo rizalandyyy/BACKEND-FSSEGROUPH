@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from connectors.db import Base
-from models.user import User
-from models.master_question import MasterQuestion
+from models.user_models.user import User
+from models.user_models.master_question import MasterQuestion
 from datetime import datetime, timezone
 
 class SecretQuestion(Base):
