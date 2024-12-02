@@ -60,6 +60,8 @@ def register():
                 
             if avatar_img.filename is not None:
                 filename = secure_filename(avatar_img.filename)
+                save_path = 'static/images/avatar/' + filename
+                avatar_img.save(save_path)
             mime_type = avatar_img.mimetype
             img_data = avatar_img.read()
             
