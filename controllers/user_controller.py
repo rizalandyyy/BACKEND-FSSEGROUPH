@@ -84,11 +84,22 @@ def register():
 def userprofile():
     try:
         with Session() as session:
-            user = session.query(User).all()
+            users = session.query(User).all()
+            serialized_users = [
+                {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'created_at': user.created_at,
+                    'updated_at': user.updated_at
+                }
+                for user in users
+            ]
             return jsonify({
-            "success": True,
-            "message": "User retrieved successfully",
-            "data": user}), 200
+                "success": True,
+                "message": "User retrieved successfully",
+                "data": serialized_users
+            }), 200
     except Exception as e:
         return jsonify({
             "success": False,
