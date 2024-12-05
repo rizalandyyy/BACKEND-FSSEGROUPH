@@ -10,7 +10,7 @@ Base.metadata.create_all(engine)
 
 
 app = Flask (__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 app.register_blueprint(userBp)
 app.register_blueprint(masterBp)
 jwt = JWTManager(app)
