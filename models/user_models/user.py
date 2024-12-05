@@ -22,7 +22,7 @@ class User(Base):
     gender = Column(Enum(Gender), nullable=False)
     username = Column(String(255), unique=True, nullable = False)
     email = Column(String(255), unique=True, nullable=False)
-    phone_number= Column(Integer, nullable=True)
+    phone_number= Column(String(20), nullable=True)
     password = Column(String(255), nullable=False)
     role = Column(Enum(Role_division), nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
