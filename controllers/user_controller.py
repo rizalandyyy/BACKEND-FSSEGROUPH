@@ -52,23 +52,7 @@ def register():
             session.add(secret_question)
             session.commit()
             
-            avatar_img = request.files['image']
-            if not avatar_img:
-                return jsonify({
-                    "success": False,
-                    "message": "Error: No image file uploaded"}), 400
-                
-            if avatar_img.filename is not None:
-                filename = secure_filename(avatar_img.filename)
-                save_path = 'static/images/avatar/' + filename
-                avatar_img.save(save_path)
-            mime_type = avatar_img.mimetype
-            img_data = avatar_img.read()
-            
-            add_avatar = AvatarImg(user_id=New_user.id, img=img_data, name=filename, mime_type=mime_type)
-            session.add(add_avatar)
-            session.commit()
-                        
+                                   
             return jsonify({
             "success": True,
             "message": "User registered successfully"}), 201
@@ -93,8 +77,8 @@ def userprofile():
                     'userName': user.userName,
                     'email': user.email,
                     'phoneNumber': user.phoneNumber,
-                    'gender': user.gender,
-                    'role': user.role,
+                    'gender': user.gender.value,
+                    'role': user.role.value,
                     'addresses': [
                         {
                             'address': address.address
@@ -365,5 +349,3 @@ def updateuserprofile():
             "success": False,
             "message": "Error updating user profile",
             "data": {"error": str(e)}}), 404
-        
-          
