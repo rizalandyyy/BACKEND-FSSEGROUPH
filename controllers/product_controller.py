@@ -4,19 +4,20 @@ from connectors.db import Session
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from models.product_models.product_img import ProductImg
+from models.product_models.product import Product
 
 productBp = Blueprint('productBp',__name__)
 
 
 @productBp.route('/product', methods=['GET'])
-def product():
+def get_all_product():
     try:
         with Session() as session:
             products = session.query(Product).all()
             return jsonify({
                 "success": True,
                 "message": "Products retrieved successfully",
-                "data": products
+                "data": [product.serialize() for product in products]
             }), 200
     except Exception as e:
         return jsonify({
@@ -60,7 +61,7 @@ def create_product():
     
     try:
         with Session() as session:
-            product = Product(name=data['name'], description=data['description'], price=data['price'], stock_qty=data['quantity'], category_id=data['category_id'])
+            product = Product(name=data['name'], description=data['description'], price=data['price'], stock_qty=data['quantity'], category_id=data['category_id'], seller_id=current_user['id'])
             session.add(product)
             session.commit()
             
@@ -96,26 +97,19 @@ def create_product():
 @jwt_required()
 def addproductimage(id):
     current_user = get_jwt_identity()
-    if current_user['role'] != 'seller':
-        return jsonify({
-            "success": False,
-            "message": "Only seller can edit product"
-        }), 403
-        
-    add_img = request.files['product_img']
-    if not add_img:
-        return jsonify({
-            "success": False,
-            "message": "Error: No image file uploaded"}), 400
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id).first()
+            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
             if not product:
                 return jsonify({
                     "success": False,
-                    "message": "Product not found"
+                    "message": "Product not found or you don't have permission to edit"
                 }), 404
-            
+            add_img = request.files['product_img']
+            if not add_img:
+                return jsonify({
+                    "success": False,
+                    "message": "Error: No image file uploaded"}), 400
             if add_img.filename is not None:
                 filename = secure_filename(add_img.filename)
                 add_img.save('static/images/product/' + filename)
@@ -142,19 +136,14 @@ def addproductimage(id):
 @jwt_required()
 def delete_product(id):
     current_user = get_jwt_identity()
-    if current_user['role'] != 'seller':
-        return jsonify({
-            "success": False,
-            "message": "Only seller can delete product"
-        }), 403
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id).first()
+            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
             if not product:
                 return jsonify({
                     "success": False,
-                    "message": "Product not found"
-                }), 404
+                    "message": "Product not found or you don't have permission to delete"
+                }), 403
             
             session.delete(product)
             session.commit()
@@ -174,26 +163,20 @@ def delete_product(id):
 @jwt_required()
 def update_product(id):
     current_user = get_jwt_identity()
-    if current_user['role'] != 'seller':
-        return jsonify({
-            "success": False,
-            "message": "Only seller can edit product"
-        }), 403
-    data = request.get_json()
-    if data is None:
-        return jsonify({
-            "success": False,
-            "message": "No data received"
-        }), 400
-
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id).first()
+            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
             if not product:
                 return jsonify({
                     "success": False,
-                    "message": "Product not found"
-                }), 404
+                    "message": "Product not found or you don't have permission to edit"
+                }), 403
+            data = request.get_json()
+            if data is None:
+                return jsonify({
+                    "success": False,
+                    "message": "No data received"
+                }), 400
 
             for key, value in data.items():
                 if hasattr(product, key):
@@ -212,3 +195,4 @@ def update_product(id):
                 "message": "Error updating product",
                 "data": {"error": str(e)}
             })
+

@@ -4,11 +4,13 @@ from controllers.user_controller import userBp
 from controllers.master_question_controller import masterBp
 from flask_jwt_extended import JWTManager
 from models import *
+from flask_cors import CORS
 
 Base.metadata.create_all(engine)
 
 
 app = Flask (__name__)
+CORS(app)
 app.register_blueprint(userBp)
 app.register_blueprint(masterBp)
 jwt = JWTManager(app)

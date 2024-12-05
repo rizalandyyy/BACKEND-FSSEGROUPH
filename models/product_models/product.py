@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, DECIMAL, ForeignKey
 from connectors.db import Base
 from datetime import datetime, timezone
 from models.product_models.master_category import listcategory
+from models.user_models.user import User
 
 class Product(Base):
     __tablename__ = 'product'
@@ -11,5 +12,6 @@ class Product(Base):
     stock_qty = Column(Integer, nullable=False)
     category_id = Column(Integer, ForeignKey(listcategory.id), nullable=False)
     description = Column(String(255), nullable=False)
+    seller_id = Column(Integer, ForeignKey(User.id), nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, onupdate=datetime.now(timezone.utc))

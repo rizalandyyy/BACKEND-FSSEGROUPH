@@ -13,5 +13,5 @@ class OrderProduct(Base):
     order_id = Column(Integer, ForeignKey(OrderDetail.id), nullable=False)
     product_id = Column(Integer, ForeignKey(Product.id), nullable=False)
     quantity = Column(Integer, nullable=False)
-    sumprice = Column(DECIMAL(10, 2), nullable=False)
+    sum_price = Column(DECIMAL(10, 2), nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))

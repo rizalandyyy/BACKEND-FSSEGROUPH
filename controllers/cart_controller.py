@@ -18,7 +18,7 @@ def cart():
             if not cart:
                 return jsonify({
                     'success' : False,
-                    'message': 'Cart not found'
+                    'message': 'Cart is Empty'
                 }), 404
             return jsonify({
                 'success' : True,

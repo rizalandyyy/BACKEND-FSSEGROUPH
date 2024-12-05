@@ -7,7 +7,7 @@ from models.user_models.master_question import MasterQuestion
 from models.user_models.avatar_img import AvatarImg
 from models.user_models.address_location import AddressLocation
 from connectors.db import Session
-from flask_jwt_extended import create_access_token, jwt_required
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from bcrypt import gensalt, hashpw
 from werkzeug.utils import secure_filename
 
@@ -19,14 +19,14 @@ userBp = Blueprint('userBp',__name__)
 def register():
     data = request.form
     # return jsonify ({"data": data})
-    if not data or 'username' not in data or 'email' not in data or 'password' not in data or 'role' not in data or 'address' not in data or 'question' not in data or 'answer' not in data:
+    if not data or 'firstName' not in data or 'lastName' not in data or 'userName' not in data or 'email' not in data or 'gender' not in data or 'phoneNumber' not in data or 'password' not in data or 'role' not in data or 'address' not in data or 'question' not in data or 'answer' not in data:
         return jsonify({
             "success": False,
-            "message": "Missing username, email, password, role, or address"}), 400
+            "message": "there are missing parameters"}), 400
     
     try:    
         with Session() as session:
-            user = session.query(User).filter_by(username=data['username']).first()
+            user = session.query(User).filter_by(userName=data['userName']).first()
             if user:
                 return jsonify({
             "success": False,
@@ -38,7 +38,7 @@ def register():
             "success": False,
             "message": "Email already exists"}), 400
             
-            New_user = User(firstname = data['firstname'], lastname=data['lastname'], username=data['username'], email=data['email'], role=data['role'], gender=data['gender'], phone_number=data['phone_number'])
+            New_user = User(firstName = data['firstName'], lastName=data['lastName'], userName=data['userName'], email=data['email'], role=data['role'], gender=data['gender'], phoneNumber=data['phoneNumber'])
             New_user.set_password(data['password'])
             
             session.add(New_user)
@@ -88,10 +88,20 @@ def userprofile():
             serialized_users = [
                 {
                     'id': user.id,
-                    'username': user.username,
+                    'firstName': user.firstName,
+                    'lastName': user.lastName,
+                    'userName': user.userName,
                     'email': user.email,
-                    'created_at': user.created_at,
-                    'updated_at': user.updated_at
+                    'phoneNumber': user.phoneNumber,
+                    'gender': user.gender,
+                    'role': user.role,
+                    'addresses': [
+                        {
+                            'address': address.address
+                        }
+                        for address in session.query(AddressLocation).filter_by(user_id=user.id).all()
+                    ]
+                    
                 }
                 for user in users
             ]
@@ -116,27 +126,27 @@ def login():
             "success": False,
             "message": "No data received"}),400
     
-    if 'username' not in data or 'password' not in data:
+    if 'userName' not in data or 'password' not in data:
         return jsonify({
             "success": False,
             "message": "Missing required fields"}),400
     
     with Session() as session:
         try:
-            user = session.query(User).filter_by(username=data['username']).first()
-            session.execute(text('SELECT * FROM user where username = username and password = password'), {
-                'username': data['username'],
+            user = session.query(User).filter_by(userName=data['userName']).first()
+            session.execute(text('SELECT * FROM user where userName = userName and password = password'), {
+                'userName': data['userName'],
                 'password': data['password']
             })
             if user and user.check_password(data['password']):
                 expires = datetime.timedelta(minutes=60)
                 access_token = create_access_token(identity={
                     'id': user.id,
-                    'username': user.username,
+                    'userName': user.userName,
                 }, expires_delta=expires)
                 return jsonify({
                     'success' : True,
-                    'message': f'User {user.username} logged in successfully',
+                    'message': f'User {user.userName} logged in successfully',
                     'access_token': access_token
                 }), 201
 
@@ -157,7 +167,7 @@ def forgotpassword():
             'success' : False,
             'message': 'Error, Please fill in the form to search for your account'}),400
     
-    if 'username' not in data:
+    if 'userName' not in data:
         return jsonify({
             'success' : False,
             'message': 'Error, wrong input'}), 400
@@ -179,7 +189,7 @@ def forgotpassword():
     
     with Session() as session:
         try:            
-            user = session.query(User).filter_by(username=data['username']).first()
+            user = session.query(User).filter_by(userName=data['userName']).first()
             
             if not user:
                 return jsonify({
@@ -244,7 +254,7 @@ def updatepassword():
     
     with Session() as session:
         try:            
-            user = session.query(User).filter_by(username=data['username']).first()
+            user = session.query(User).filter_by(userName=data['userName']).first()
             if not user:
                 return jsonify({
                     'success' : False,
@@ -259,9 +269,101 @@ def updatepassword():
             return jsonify({
             "success": False,
             "message": "Error updating password",
-            "data": {"error": str(e)}}), 404            
-       
-
-
+            "data": {"error": str(e)}}), 404     
+                   
+# add new address
+@userBp.route('/addaddress', methods=['POST'])
+@jwt_required()
+def addaddress():
+    data = request.get_json()
+    current_user = get_jwt_identity()
+    
+    if 'address' not in data:
+        return jsonify({
+            'success' : False,
+            'message': 'Error, wrong input'}), 400
+    
+    with Session() as session:
+        try:            
+            user = session.query(User).filter_by(userName=current_user).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'}), 404
+                
+            add_address = AddressLocation(user_id=user.id, address=data['address'])
+            session.add(add_address)
+            session.commit()
+            return jsonify({
+                'success' : True,
+                'message': 'Address added successfully'}), 200
+        except Exception as e:
+            return jsonify({
+            "success": False,
+            "message": "Error adding address",
+            "data": {"error": str(e)}}), 404
+            
+# delete address
+@userBp.route('/deleteaddress', methods=['DELETE'])
+@jwt_required()
+def deleteaddress():
+    data = request.get_json()
+    current_user = get_jwt_identity()
+    if 'address' not in data:
+        return jsonify({
+            'success' : False,
+            'message': 'Error, wrong input'}), 400
+    
+    with Session() as session:
+        try:            
+            user = session.query(User).filter_by(userName=current_user).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'}), 404
+                
+            address = session.query(AddressLocation).filter_by(address=data['address']).first()
+            if not address:
+                return jsonify({
+                    'success' : False,
+                    'message': 'Address not found'}), 404
+                
+            session.delete(address)
+            session.commit()
+            return jsonify({
+                'success' : True,
+                'message': 'Address deleted successfully'}), 200
+        except Exception as e:
+            return jsonify({
+            "success": False,
+            "message": "Error deleting address",
+            "data": {"error": str(e)}}), 404
+            
+#update user profile
+@userBp.route('/userprofile', methods=['PUT'])
+@jwt_required()
+def updateuserprofile():
+    data = request.get_json()
+    current_user = get_jwt_identity()
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(userName=current_user).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'}), 404
+            
+            for key, value in data.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+            session.commit()
+            return jsonify({
+                'success' : True,
+                'message': 'User profile updated successfully'}), 200
+        except Exception as e:
+            return jsonify({
+            "success": False,
+            "message": "Error updating user profile",
+            "data": {"error": str(e)}}), 404
         
           
