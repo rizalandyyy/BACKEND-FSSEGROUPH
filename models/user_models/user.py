@@ -31,7 +31,7 @@ class User(Base):
     
     
     def __repr__(self):
-        return f'<User{self.name}>'
+        return f'<User(id={self.id}, userName={self.userName}, email={self.email}, firstName={self.firstName}, lastName={self.lastName}, phoneNumber={self.phoneNumber}>'
     
     def set_password(self, password):
         self.password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from sqlalchemy import text
 import datetime
 from models.user_models.user import User
@@ -10,6 +10,7 @@ from connectors.db import Session
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from bcrypt import gensalt, hashpw
 from werkzeug.utils import secure_filename
+import os
 
 
 userBp = Blueprint('userBp',__name__)
@@ -18,45 +19,61 @@ userBp = Blueprint('userBp',__name__)
 @userBp.route('/register', methods=['POST'])
 def register():
     data = request.form
-    # return jsonify ({"data": data})
     if not data or 'firstName' not in data or 'lastName' not in data or 'userName' not in data or 'email' not in data or 'gender' not in data or 'phoneNumber' not in data or 'password' not in data or 'role' not in data or 'address' not in data or 'question' not in data or 'answer' not in data:
         return jsonify({
             "success": False,
             "message": "there are missing parameters"}), 400
-    
-    try:    
+
+    try:
         with Session() as session:
             user = session.query(User).filter_by(userName=data['userName']).first()
             if user:
                 return jsonify({
-            "success": False,
-            "message": "Username already exists"}), 400
-            
+                    "success": False,
+                    "message": "Username already exists"}), 400
+
             email = session.query(User).filter_by(email=data['email']).first()
             if email:
                 return jsonify({
-            "success": False,
-            "message": "Email already exists"}), 400
-            
-            New_user = User(firstName = data['firstName'], lastName=data['lastName'], userName=data['userName'], email=data['email'], role=data['role'], gender=data['gender'], phoneNumber=data['phoneNumber'])
+                    "success": False,
+                    "message": "Email already exists"}), 400
+
+            New_user = User(firstName=data['firstName'], lastName=data['lastName'], userName=data['userName'], email=data['email'], role=data['role'], gender=data['gender'], phoneNumber=data['phoneNumber'])
             New_user.set_password(data['password'])
-            
+
             session.add(New_user)
             session.commit()
-            
+
             add_address = AddressLocation(user_id=New_user.id, address=data['address'])
             session.add(add_address)
-            session.commit()
             
             secret_question = SecretQuestion(user_id=New_user.id, question_id=data['question'], answer=data['answer'])
             session.add(secret_question)
+
+            # Assign avatar image based on gender
+            avatar_image = 'blank-male-avatar.png' if data['gender'] == 'Male' else 'blank-female-avatar.png'
+            avatar_path = os.path.join(current_app.root_path, 'asset', avatar_image)
+
+            print (avatar_path)
+            # Check if avatar image exists
+            if not os.path.isfile(avatar_path):
+                return jsonify({
+                    "success": False,
+                    "message": "Avatar image not found"}), 400
+
+            # Open the avatar image as binary data
+            with open(avatar_path, 'rb') as f:
+                avatar_img_data = f.read()
+
+            # Save the avatar image to the database
+            avatar_img = AvatarImg(user_id=New_user.id, img=avatar_img_data)
+            session.add(avatar_img)
+
             session.commit()
-            
-                                   
             return jsonify({
-            "success": True,
-            "message": "User registered successfully"}), 201
-            
+                "success": True,
+                "message": "User registered successfully"}), 201
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -170,31 +187,30 @@ def forgotpassword():
         return jsonify({
             'success' : False,
             'message': 'password and repeat password not same'}), 400
-    
+    print(data)
     with Session() as session:
         try:            
-            user = session.query(User).filter_by(userName=data['userName']).first()
-            
-            if not user:
+            usercek = session.query(User).filter_by(userName=data['userName']).first()
+            if usercek is None:
                 return jsonify({
                     'success' : False,
                     'message': 'User not found'}), 404
-
-            secret_question = session.query(SecretQuestion).filter_by(user_id=user.id).first()
+         
+            secret_question = session.query(SecretQuestion).filter_by(user_id=usercek.id, question_id=data['question']).first()
             if not secret_question:
                 return jsonify({
                     'success' : False,
                     'message': 'Wrong Secret Question'}), 404
-
+         
             master_question = session.query(MasterQuestion).filter_by(id=secret_question.question_id).first()
             if not master_question:
                 return jsonify({
                     'success' : False,
                     'message': 'Master question not found'}), 404
-
-            if master_question.question == data['question'] and secret_question.answer == data['answer']:
+            
+            if master_question.id == data['question'] and secret_question.answer == data['answer']:
                 hashed_password = hashpw(data['password'].encode('utf-8'), gensalt()).decode('utf-8')
-                user.password = hashed_password
+                usercek.password = hashed_password
                 session.commit()
                 return jsonify({
                     'success' : True,

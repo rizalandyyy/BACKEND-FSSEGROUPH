@@ -9,3 +9,6 @@ class MasterQuestion(Base):
     question = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, onupdate=datetime.now(timezone.utc))  
+    
+    def __repr__(self):
+        return f'<MasterQuestion(id={self.id}, question={self.question})>'
