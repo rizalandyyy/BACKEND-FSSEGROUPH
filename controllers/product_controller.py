@@ -5,6 +5,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from models.product_models.product_img import ProductImg
 from models.product_models.product import Product
+from models.user_models.user import User
+from models.user_models.user import Role_division
+from decimal import Decimal
 
 productBp = Blueprint('productBp',__name__)
 
@@ -14,10 +17,20 @@ def get_all_product():
     try:
         with Session() as session:
             products = session.query(Product).all()
+            serialized_product = [
+                {
+                    "name" : product.name,
+                    "price" : product.price,
+                    "stock_qty" : product.stock_qty,
+                    "category_id" : product.category_id,
+                    "description" : product.description
+                }
+                for product in products
+            ]
             return jsonify({
                 "success": True,
                 "message": "Products retrieved successfully",
-                "data": [product.serialize() for product in products]
+                "data": serialized_product
             }), 200
     except Exception as e:
         return jsonify({
@@ -47,52 +60,67 @@ def product_by_id(id):
 @jwt_required()
 def create_product():
     current_user = get_jwt_identity()
-    if current_user['role'] != 'seller':
-        return jsonify({
-            "success": False,
-            "message": "Only seller can post product"
-        }), 403
+  
     data = request.form
-    if data is None or 'name' not in data or 'description' not in data or 'price' not in data or 'quantity' not in data or 'category_id' not in data:
+    required_fields = ['name', 'price', 'stock_qty', 'category_id', 'description']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
         return jsonify({
             "success": False,
-            "message": "Missing required fields"
+            "message": "Missing required fields: " + ", ".join(missing_fields)
         }), 400
-    
-    try:
-        with Session() as session:
-            product = Product(name=data['name'], description=data['description'], price=data['price'], stock_qty=data['quantity'], category_id=data['category_id'], seller_id=current_user['id'])
-            session.add(product)
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    "success": False,
+                    "message": "User not found"
+                })
+                
+            if user.role not in [Role_division.seller]:
+                return jsonify({
+                    "success": False,
+                    "message": "You are not authorized to create a product"
+                }), 403
+            
+            new_product = Product(name=data['name'], price=Decimal(data['price']), stock_qty=data['stock_qty'], category_id=data['category_id'], description=data['description'], seller_id=user.id)
+            session.add(new_product)
             session.commit()
             
             product_img = request.files['product_img']
-            if not product_img:
-                return jsonify({
-                    "success": False,
-                    "message": "Error: No image file uploaded"}), 400
-                
             if product_img.filename is not None:
                 filename = secure_filename(product_img.filename)
-                product_img.save('static/images/product/' + filename)
             mime_type = product_img.mimetype
             img_data = product_img.read()
             
-            add_img = ProductImg(product_id=product.id, img=img_data, name=filename, mime_type=mime_type)
+            add_img = ProductImg(product_id=new_product.id, img=img_data, name=filename, mime_type=mime_type)
             session.add(add_img)
             session.commit()
             
+            product_data = {
+                'id': new_product.id,
+                'name': new_product.name,
+                'price': str(new_product.price),
+                'stock_qty': new_product.stock_qty,
+                'category_id': new_product.category_id,
+                'description': new_product.description,
+                'seller_id': new_product.seller_id
+            }
             return jsonify({
                 "success": True,
                 "message": "Product created successfully",
-                "data": product
+                "data": product_data
             }), 201
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": "Error creating product",
-            "data": {"error": str(e)}
-        })
-
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "message": "Error creating product",
+                "data": {"error": str(e)}
+            })
+            
+    
+    
 @productBp.route('/product/addimageproduct<int:id>', methods=['POST'])
 @jwt_required()
 def addproductimage(id):
