@@ -62,7 +62,7 @@ def create_product():
     current_user = get_jwt_identity()
   
     data = request.form
-    required_fields = ['name', 'price', 'stock_qty', 'category_id', 'description']
+    required_fields = ['name', 'price', 'stock_qty', 'category_id', 'description', 'status']
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         return jsonify({
@@ -84,7 +84,7 @@ def create_product():
                     "message": "You are not authorized to create a product"
                 }), 403
             
-            new_product = Product(name=data['name'], price=Decimal(data['price']), stock_qty=data['stock_qty'], category_id=data['category_id'], description=data['description'], seller_id=user.id)
+            new_product = Product(name=data['name'], price=Decimal(data['price']), stock_qty=data['stock_qty'], category_id=data['category_id'], description=data['description'], status =data['status'], seller_id=user.id)
             session.add(new_product)
             session.commit()
             
@@ -105,6 +105,7 @@ def create_product():
                 'stock_qty': new_product.stock_qty,
                 'category_id': new_product.category_id,
                 'description': new_product.description,
+                'status' : new_product.status,
                 'seller_id': new_product.seller_id
             }
             return jsonify({
