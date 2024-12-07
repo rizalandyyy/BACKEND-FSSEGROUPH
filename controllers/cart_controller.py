@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user_models.cart import Cart
 from models.transaction_models.order_product import OrderProduct
 from models.transaction_models.order_detail import OrderDetail
+from models.user_models.user import User
 
 
 cartBp = Blueprint('cartBp',__name__)
@@ -14,7 +15,13 @@ def cart():
     current_user = get_jwt_identity()
     with Session() as session : 
         try:
-            cart = session.query(Cart).filter_by(user_id=current_user['id']).all()
+            user = session.query(User).filter_by(id= id , userName = current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'
+                }), 404
+            cart = session.query(Cart).filter_by(user_id=user.id).all()
             if not cart:
                 return jsonify({
                     'success' : False,
@@ -44,7 +51,13 @@ def addcart():
     current_user = get_jwt_identity()
     with Session() as session:
         try:
-            cart = Cart(user_id=current_user['id'], product_id=data['product_id'], quantity=data['quantity'])
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'
+                }), 404
+            cart = Cart(user_id=user.id, product_id=data['product_id'], quantity=data['quantity'])
             session.add(cart)
             session.commit()
             return jsonify({
@@ -64,7 +77,13 @@ def deleteitemsincart(product_id):
     current_user = get_jwt_identity()
     with Session() as session:
         try:
-            cart = session.query(Cart).filter_by(user_id=current_user['id'], product_id=product_id).first()
+            user = session.query(User).filter_by(id= id, userName= current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'
+                }), 404
+            cart = session.query(Cart).filter_by(user_id=user.id, product_id=product_id).first()
             if not cart:
                 return jsonify({
                     'success' : False,
@@ -97,7 +116,13 @@ def updatecart(product_id):
     current_user = get_jwt_identity()
     with Session() as session :
         try:
-            cart = session.query(Cart).filter_by(user_id=current_user['id'], product_id=product_id).first()
+            user = session.query(User).filter_by(id= id, userName = current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'
+                }), 404
+            cart = session.query(Cart).filter_by(user_id=user.id, product_id=product_id).first()
             if not cart:
                 return jsonify({
                     'success' : False,
@@ -130,8 +155,14 @@ def addtoorderproduct():
     current_user = get_jwt_identity()
     with Session() as session:
         try:
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            if not user:    
+                return jsonify({
+                    'success': False,
+                    'message': 'User not found'
+            }), 404
             carts = session.query(Cart).filter(
-                Cart.user_id == current_user['id'],
+                Cart.user_id == user.id,
                 Cart.product_id.in_(data['product_ids'])
             ).all()
             if not carts:

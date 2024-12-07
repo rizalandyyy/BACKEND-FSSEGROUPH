@@ -23,6 +23,7 @@ def get_all_product():
                     "price" : product.price,
                     "stock_qty" : product.stock_qty,
                     "category_id" : product.category_id,
+                    "status" : product.status,
                     "description" : product.description
                 }
                 for product in products
@@ -44,10 +45,24 @@ def product_by_id(id):
     try:
         with Session() as session:
             product = session.query(Product).filter_by(id=id).first()
+            if not product:
+                return jsonify({
+                    "success": False,
+                    "message": "Product not found",
+                    "data": {}
+                }), 404
+            serialized_product = {
+                "name" : product.name,
+                "price" : product.price,
+                "stock_qty" : product.stock_qty,
+                "category_id" : product.category_id,
+                "status" : product.status,
+                "description" : product.description
+            }
             return jsonify({
                 "success": True,
                 "message": "Product retrieved successfully",
-                "data": product
+                "data": serialized_product
             }), 200
     except Exception as e:
         return jsonify({
@@ -55,7 +70,6 @@ def product_by_id(id):
                 "message": "Error retrieving product",
                 "data": {"error": str(e)}
             })
-        
 @productBp.route('/product/addproduct', methods=['POST'])
 @jwt_required()
 def create_product():
@@ -128,7 +142,13 @@ def addproductimage(id):
     current_user = get_jwt_identity()
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    "success": False,
+                    "message": "User not found"
+                }), 404
+            product = session.query(Product).filter_by(id=id, seller_id=user.id).first()
             if not product:
                 return jsonify({
                     "success": False,
@@ -141,7 +161,6 @@ def addproductimage(id):
                     "message": "Error: No image file uploaded"}), 400
             if add_img.filename is not None:
                 filename = secure_filename(add_img.filename)
-                add_img.save('static/images/product/' + filename)
             mime_type = add_img.mimetype
             img_data = add_img.read()
             
@@ -167,7 +186,13 @@ def delete_product(id):
     current_user = get_jwt_identity()
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            if not user:
+                return jsonify({
+                    "success": False,
+                    "message": "User not found"
+                }),404
+            product = session.query(Product).filter_by(id=id, seller_id=user.id).first()
             if not product:
                 return jsonify({
                     "success": False,
@@ -194,7 +219,14 @@ def update_product(id):
     current_user = get_jwt_identity()
     with Session() as session:
         try:
-            product = session.query(Product).filter_by(id=id, seller_id=current_user['id']).first()
+            user = session.query(User).filter_by(id=id, userName = current_user['userName']).first()
+            if not user:
+                return jsonify ({
+                    "success" : False,
+                    "message" : "User not Found"
+                }), 404
+                
+            product = session.query(Product).filter_by(id=id, seller_id=user.id).first()
             if not product:
                 return jsonify({
                     "success": False,
