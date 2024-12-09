@@ -23,7 +23,7 @@ def get_all_product():
                     "price" : product.price,
                     "stock_qty" : product.stock_qty,
                     "category_id" : product.category_id,
-                    "status" : product.status,
+                    "status" : product.status.name,
                     "description" : product.description
                 }
                 for product in products
@@ -56,7 +56,7 @@ def product_by_id(id):
                 "price" : product.price,
                 "stock_qty" : product.stock_qty,
                 "category_id" : product.category_id,
-                "status" : product.status,
+                "status" : product.status.name,
                 "description" : product.description
             }
             return jsonify({
@@ -108,6 +108,7 @@ def create_product():
             mime_type = product_img.mimetype
             img_data = product_img.read()
             
+                       
             add_img = ProductImg(product_id=new_product.id, img=img_data, name=filename, mime_type=mime_type)
             session.add(add_img)
             session.commit()
@@ -119,7 +120,7 @@ def create_product():
                 'stock_qty': new_product.stock_qty,
                 'category_id': new_product.category_id,
                 'description': new_product.description,
-                'status' : new_product.status,
+                'status' : new_product.status.name,
                 'seller_id': new_product.seller_id
             }
             return jsonify({
@@ -136,7 +137,7 @@ def create_product():
             
     
     
-@productBp.route('/product/addimageproduct<int:id>', methods=['POST'])
+@productBp.route('/product/<int:id>/addimage', methods=['POST'])
 @jwt_required()
 def addproductimage(id):
     current_user = get_jwt_identity()
@@ -164,14 +165,24 @@ def addproductimage(id):
             mime_type = add_img.mimetype
             img_data = add_img.read()
             
+            # Decode the image data
+            img_data = img_data.decode('utf-8')
+            
             add_img = ProductImg(product_id=product.id, img=img_data, name=filename, mime_type=mime_type)
             session.add(add_img)
             session.commit()
             
+            product_img_data = {
+                'id': add_img.id,
+                'product_id': add_img.product_id,
+                'name': add_img.name,
+                'mime_type': add_img.mime_type
+            }
+            
             return jsonify({
                 "success": True,
                 "message": "Product image added successfully",
-                "data": add_img
+                "data": product_img_data
             }), 201
         except Exception as e:
             return jsonify({
@@ -187,11 +198,23 @@ def delete_product(id):
     with Session() as session:
         try:
             user = session.query(User).filter_by(userName=current_user['userName']).first()
+            print(user)
             if not user:
                 return jsonify({
                     "success": False,
                     "message": "User not found"
                 }),404
+            product_img = session.query(ProductImg).filter_by(product_id=id).all()
+            print(product_img)
+            if not product_img:
+                return jsonify({
+                    "success": False,
+                    "message": "image not found or you don't have permission to delete"
+                }), 403
+            for img in product_img:
+                session.delete(img)
+            session.commit()
+                
             product = session.query(Product).filter_by(id=id, seller_id=user.id).first()
             if not product:
                 return jsonify({
@@ -232,7 +255,7 @@ def update_product(id):
                     "success": False,
                     "message": "Product not found or you don't have permission to edit"
                 }), 403
-            data = request.get_json()
+            data = request.form
             if data is None:
                 return jsonify({
                     "success": False,
@@ -244,11 +267,19 @@ def update_product(id):
                     setattr(product, key, value)
 
             session.commit()
+            Serialized_product = {
+                'id': product.id,
+                'name': product.name,
+                'description': product.description,
+                'price': product.price,
+                'stock_qty': product.stock_qty,
+                'category_id': product.category_id
+            }
 
             return jsonify({
                 "success": True,
                 "message": "Product updated successfully",
-                "data": product
+                "data": Serialized_product
             }), 200
         except Exception as e:
             return jsonify({

@@ -19,10 +19,13 @@ userBp = Blueprint('userBp',__name__)
 @userBp.route('/register', methods=['POST'])
 def register():
     data = request.form
-    if not data or 'firstName' not in data or 'lastName' not in data or 'userName' not in data or 'email' not in data or 'gender' not in data or 'phoneNumber' not in data or 'password' not in data or 'role' not in data or 'address' not in data or 'question' not in data or 'answer' not in data:
+    required_fields = ['firstName', 'lastName', 'userName', 'email', 'gender', 'phoneNumber', 'password', 'role', 'address', 'question', 'answer']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
         return jsonify({
             "success": False,
-            "message": "there are missing parameters"}), 400
+            "message": "Missing required fields: " + ", ".join(missing_fields)
+        }), 400
 
     try:
         with Session() as session:
@@ -285,7 +288,7 @@ def addaddress():
     
     with Session() as session:
         try:            
-            user = session.query(User).filter_by(userName=current_user).first()
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
             if not user:
                 return jsonify({
                     'success' : False,
@@ -304,25 +307,19 @@ def addaddress():
             "data": {"error": str(e)}}), 404
             
 # delete address
-@userBp.route('/deleteaddress', methods=['DELETE'])
+@userBp.route('/deleteaddress/<int:id>', methods=['DELETE'])
 @jwt_required()
-def deleteaddress():
-    data = request.get_json()
-    current_user = get_jwt_identity()
-    if 'address' not in data:
-        return jsonify({
-            'success' : False,
-            'message': 'Error, wrong input'}), 400
-    
+def deleteaddress(id):
+    current_user = get_jwt_identity()    
     with Session() as session:
         try:            
-            user = session.query(User).filter_by(userName=current_user).first()
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
             if not user:
                 return jsonify({
                     'success' : False,
                     'message': 'User not found'}), 404
                 
-            address = session.query(AddressLocation).filter_by(address=data['address']).first()
+            address = session.query(AddressLocation).filter_by(user_id=user.id, id=id).first()
             if not address:
                 return jsonify({
                     'success' : False,
@@ -336,18 +333,20 @@ def deleteaddress():
         except Exception as e:
             return jsonify({
             "success": False,
-            "message": "Error deleting address",
-            "data": {"error": str(e)}}), 404
+            "message": f"Error deleting address: {str(e)}"}), 404
             
 #update user profile
 @userBp.route('/userprofile', methods=['PUT'])
 @jwt_required()
 def updateuserprofile():
-    data = request.get_json()
+    data = request.form
     current_user = get_jwt_identity()
+    print("Current User:", current_user)
+    print("Received Data:", data)
     with Session() as session:
         try:
-            user = session.query(User).filter_by(userName=current_user).first()
+            user = session.query(User).filter_by(userName=current_user['userName']).first()
+            print(user)
             if not user:
                 return jsonify({
                     'success' : False,
@@ -357,11 +356,23 @@ def updateuserprofile():
                 if hasattr(user, key):
                     setattr(user, key, value)
             session.commit()
+            
+            serialized_user = {
+                    'id': user.id,
+                    'firstName': user.firstName,
+                    'lastName': user.lastName,
+                    'userName': user.userName,
+                    'email': user.email,
+                    'phoneNumber': user.phoneNumber                                                          
+                }      
             return jsonify({
-                'success' : True,
-                'message': 'User profile updated successfully'}), 200
+                "success": True,
+                "message": "User update successfully",
+                "data": serialized_user
+            }), 200
+            
         except Exception as e:
             return jsonify({
             "success": False,
             "message": "Error updating user profile",
-            "data": {"error": str(e)}}), 404
+            "error":  str(e)}), 500
