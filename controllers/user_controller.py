@@ -199,7 +199,7 @@ def forgotpassword():
                     'success' : False,
                     'message': 'User not found'}), 404
          
-            secret_question = session.query(SecretQuestion).filter_by(user_id=usercek.id, question_id=data['question']).first()
+            secret_question = session.query(SecretQuestion).filter_by(user_id=usercek.id, question_id=str(data['question'])).first()
             if not secret_question:
                 return jsonify({
                     'success' : False,
