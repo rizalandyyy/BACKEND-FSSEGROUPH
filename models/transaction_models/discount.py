@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DECIMAL
 from connectors.db import Base
 from models.user_models.user import User
 
@@ -8,7 +8,7 @@ class DiscountCode(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     code = Column(String(255), unique=True, nullable=False)
     discount_value = Column(DECIMAL(10, 2))
-    expiration_date = Column(DateTime, nullable=False)
+    expiration_date = Column(Date, nullable=False)
     status = Column(String(255), nullable=True)
     seller_id = Column(Integer, ForeignKey(User.id), nullable=False)
    

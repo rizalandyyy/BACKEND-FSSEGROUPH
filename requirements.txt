@@ -13,3 +13,5 @@ MarkupSafe==2.1.1
 Werkzeug==3.0.0
 flask-jwt-extended==4.6.0
 flask-cors==5.0.0
+flask-migrate==4.0.7
+pytz==2024.2

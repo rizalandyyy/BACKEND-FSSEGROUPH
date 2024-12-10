@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
-from models.user_models.user import User
-from models.user_models.user import Role_division
+from models.user_models.user import User, Role_division
 from connectors.db import Session
 from models.transaction_models.discount import DiscountCode
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timezone
+import pytz
 
 discountBp = Blueprint('discountBp',__name__)
 
@@ -39,7 +39,7 @@ def discounts():
 @discountBp.route('/discount/getdiscount', methods=['POST'])
 def discount():
     data = request.get_json()
-    if not data or not 'seller_id' not in data:
+    if not data:
         return jsonify({
             "success": False,
             "message": "Missing required fields: seller_id",
@@ -96,20 +96,26 @@ def adddiscount():
                     "success": False,
                     "message": "You are not authorized to create a discount"
                 }), 403
-                
-            new_discount = DiscountCode(code = data['code'], discount_value = data['discount_value'], expiration_date= data['expiration_date'], status='pending', seller_id = user.id)
             
-            today = datetime.now(timezone.utc)
-            if data['expiration_date'] > today:
-                session.add(new_discount)
-                new_discount.status = 'available'
-            else:
-                new_discount.status = 'expired'
+            expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d')
+            expiration_date = pytz.utc.localize(expiration_date)
+            today = datetime.now(pytz.utc)
+            if expiration_date < today:
                 return jsonify({
                     "success": False,
                     "message": "Expiration date must be in the future"
                 }), 400
-                
+                           
+                   
+            new_discount = DiscountCode(code = data['code'], discount_value = data['discount_value'], expiration_date= expiration_date, status='pending', seller_id = user.id)
+            
+            if expiration_date > today:
+                new_discount.status = 'available'
+            else:
+                new_discount.status = 'expired'
+            
+            
+            session.add(new_discount)   
             session.commit()
             
             discount_data = {
@@ -200,19 +206,29 @@ def updatediscount(id):
                     "message": "Discount not found"
                 }), 404
                 
-            discount.code = data.get('code', discount.code)
-            discount.discount_value = data.get('discount_value', discount.discount_value)
-            discount.expiration_date = data.get('expiration_date', discount.expiration_date)
-            today = datetime.now(timezone.utc)
-            if data['expiration_date'] > today:
+            for key, value in data.items():
+                if hasattr(discount, key):
+                    setattr(discount, key, value)
+            
+            discount.expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d').replace(tzinfo=pytz.utc)    
+            today = datetime.now(pytz.utc)
+            if discount.expiration_date > today:
                 discount.status = 'available'
             else:
                 discount.status = 'expired'
             session.commit()
+            serialized_discount = {
+                'id': discount.id,
+                'code': discount.code,
+                'discount_value': discount.discount_value,
+                'expiration_date': discount.expiration_date,
+                'status': discount.status,
+                'seller_id': discount.seller_id
+            }
             return jsonify({
                 "success": True,
                 "message": "Discount updated successfully",
-                "data": discount.to_dict()
+                "data": serialized_discount
             }), 200
         except Exception as e:
             return jsonify({
@@ -220,6 +236,8 @@ def updatediscount(id):
                 "message": "Error updating discount",
                 "data": {"error": str(e)}
             }), 500
+
+
            
 @discountBp.route('/refreshdiscount', methods=['POST'])
 @jwt_required()
