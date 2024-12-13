@@ -56,7 +56,7 @@ def register():
         add_address = AddressLocation(user_id=new_user.id, address=data['address'])
         db.session.add(add_address)
 
-        master_question = MasterQuestion.query.filter_by(question=data['question']).first()
+        master_question = MasterQuestion.query.filter_by(id=data['question']).first()
         if not master_question:
             return jsonify({
                 "success": False,
