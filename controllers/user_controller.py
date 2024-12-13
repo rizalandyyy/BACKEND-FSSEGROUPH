@@ -153,7 +153,7 @@ def login():
                     'message': f'User {user.userName} logged in successfully',
                     'access_token': access_token,
                     'user_id': user.id,
-                    'role' : user.role
+                    'role' : user.role.name
                 }), 201
 
             return jsonify({'error': 'Invalid email or password'}), 400
@@ -163,7 +163,44 @@ def login():
             "success": False,
             "message": "Error logging in user",
             "data": {"error": str(e)}}), 404
-
+            
+#selected userprofile
+@userBp.route('userprofile/<user_id>', methods=['GET'])
+@jwt_required()
+def get_user_profile(user_id):
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(id=user_id).first()
+            if not user:
+                return jsonify({
+                    'success' : False,
+                    'message': 'User not found'}), 404
+            return jsonify({
+                'success' : True,
+                'message': 'User retrieved successfully',
+                'data': {
+                    'id': user.id,
+                    'firstName': user.firstName,
+                    'lastName': user.lastName,
+                    'userName': user.userName,
+                    'email': user.email,
+                    'phoneNumber': user.phoneNumber,
+                    'gender': user.gender.value,
+                    'role': user.role.value,
+                    'addresses': [
+                        {
+                            'address': address.address
+                        }
+                        for address in session.query(AddressLocation).filter_by(user_id=user.id).all()
+                    ]
+                }
+            }), 200
+        except Exception as e:
+            return jsonify({
+            "success": False,
+            "message": "Error retrieving user",
+            "data": {"error": str(e)}}), 404
+            
 #if user forgot password
 @userBp.route('/login/forgotpassword', methods=['POST'])
 def forgotpassword():
