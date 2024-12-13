@@ -1,4 +1,4 @@
-from .master_category import listcategory
+from .list_category import ListCategory
 from .product import Product
-from .track_customer_review import review
+from .review import review
 from .product_img import ProductImg

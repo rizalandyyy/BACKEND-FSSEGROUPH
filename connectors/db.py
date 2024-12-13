@@ -1,16 +1,11 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-import os
+from flask_sqlalchemy import SQLAlchemy
 
-Base = declarative_base()
+# Initialize SQLAlchemy
+db = SQLAlchemy()
 
-
-
-print('connecting to db')
-engine = create_engine(f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}')
-
-engine.connect()
-print('connected to db')
-
-Session = sessionmaker(engine)
+def init_db(app):
+    db.init_app(app)
+    with app.app_context():
+        # Create all tables
+        db.create_all()
+    return db
