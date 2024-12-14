@@ -1,10 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime
-from connectors.db import Base
+from app import db
 from datetime import datetime, timezone
 
 # list category product
-class listcategory(Base):
-    __tablename__ = 'category'
+class ListCategory(db.Model):
+    __tablename__ = 'categories'
     
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     category = Column(String(255), nullable=False)

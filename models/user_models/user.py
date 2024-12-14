@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Enum
-from connectors.db import Base
+from app import db
 from datetime import datetime, timezone
 from bcrypt import hashpw, gensalt, checkpw
 import enum
@@ -13,8 +13,8 @@ class Gender(enum.Enum):
     male = "Male"
     female = "Female"
     
-class User(Base):
-    __tablename__ = 'user'
+class User(db.Model):
+    __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     firstName = Column(String(255), nullable=False)
@@ -28,7 +28,9 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, onupdate=datetime.now(timezone.utc))
     
-    
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
     
     def __repr__(self):
         return f'<User(id={self.id}, userName={self.userName}, email={self.email}, firstName={self.firstName}, lastName={self.lastName}, phoneNumber={self.phoneNumber}>'
@@ -49,3 +51,5 @@ class User(Base):
         if gender not in Gender.__members__:
             raise ValueError("Invalid gender. Must be 'male' or 'female'")
         self.gender = gender
+        
+     

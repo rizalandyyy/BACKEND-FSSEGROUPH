@@ -1,9 +1,9 @@
 from sqlalchemy import Column, Integer, String, DateTime
-from connectors.db import Base
+from app import db
 from datetime import datetime, timezone
 
-class MasterQuestion(Base):
-    __tablename__ = 'master_question'
+class MasterQuestion(db.Model):
+    __tablename__ = 'master_questions'
     
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     question = Column(String(255), nullable=False)
