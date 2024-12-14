@@ -56,7 +56,7 @@ def register():
         add_address = AddressLocation(user_id=new_user.id, address=data['address'])
         db.session.add(add_address)
 
-        master_question = MasterQuestion.query.filter_by(question=data['question']).first()
+        master_question = MasterQuestion.query.filter_by(id=data['question']).first()
         if not master_question:
             return jsonify({
                 "success": False,
@@ -96,6 +96,7 @@ def register():
 def userprofile():
     try:
         users = User.query.all()
+        
         serialized_users = [
             {
                 'id': user.id,
@@ -110,7 +111,7 @@ def userprofile():
                     {
                         'address': address.address
                     }
-                    for address in user.addresses
+                    for address in AddressLocation.query.filter_by(user_id=user.id).all()
                 ]
             }
             for user in users
@@ -190,7 +191,7 @@ def get_user_profile(user_id):
                     {
                         'address': address.address
                     }
-                    for address in user.addresses
+                    for address in AddressLocation.query.filter_by(user_id=user.id).all()
                 ]
             }
         }), 200
@@ -237,7 +238,7 @@ def forgotpassword():
                 'success' : False,
                 'message': 'User not found'}), 404
          
-        secret_question = user.secret_questions.filter_by(question_id=data['question']).first()
+        secret_question = SecretQuestion.query.filter_by(user_id=user.id ,question_id=data['question']).first()
         if not secret_question:
             return jsonify({
                 'success' : False,
@@ -314,6 +315,7 @@ def updatepassword():
             "message": "Error updating password",
             "data": {"error": str(e)}
         }), 404
+        
 # add new address
 @userBp.route('/addaddress', methods=['POST'])
 @jwt_required()

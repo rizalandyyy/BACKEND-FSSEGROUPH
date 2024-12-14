@@ -23,7 +23,13 @@ def get_all_product():
                 "stock_qty": product.stock_qty,
                 "category_id": product.category_id,
                 "status": product.status.name,
-                "description": product.description
+                "description": product.description,
+                "list_images": [
+                              {
+                                 "image": img.img 
+                              }
+                              for img in ProductImg.query.filter_by(product_id=product.id).all()
+                            ]
             }
             for product in products
         ]
