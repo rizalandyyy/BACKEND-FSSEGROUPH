@@ -80,7 +80,7 @@ def adddiscount():
             "message": "Missing required fields: " + ", ".join(missing_fields)
         }), 400
     
-    user = User.query.filter_by(userName=current_user['userName']).first()
+    user = User.query.filter_by(id=current_user).first()
     if not user:
         return jsonify({
             "success": False,
@@ -133,7 +133,7 @@ def adddiscount():
 @jwt_required()
 def deletediscount(id):
     current_user = get_jwt_identity()
-    user = User.query.filter_by(userName=current_user['userName']).first()
+    user = User.query.filter_by(id=current_user).first()
     if not user:
         return jsonify({
             "success": False,
@@ -167,7 +167,7 @@ def updatediscount(id):
     current_user = get_jwt_identity()
     data = request.get_json()
     try:
-        user = User.query.filter_by(userName=current_user['userName']).first()
+        user = User.query.filter_by(id=current_user).first()
         if not user:
             return jsonify({
                 "success": False,
@@ -227,7 +227,7 @@ def updatediscount(id):
 def refreshdiscount():
     current_user = get_jwt_identity()
     try:
-        user = User.query.filter_by(userName=current_user['userName']).first()
+        user = User.query.filter_by(id=current_user).first()
         if not user:
             return jsonify({
                 "success": False,

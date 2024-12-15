@@ -1,8 +1,8 @@
-"""Initial migration.
+"""initial migration
 
-Revision ID: eaecb768a24e
+Revision ID: 87d2370e424c
 Revises: 
-Create Date: 2024-12-13 22:17:59.789636
+Create Date: 2024-12-15 19:18:34.368525
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'eaecb768a24e'
+revision = '87d2370e424c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -30,6 +30,14 @@ def upgrade():
     sa.Column('question', sa.String(length=255), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('payment_methods',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('payment_method', sa.Enum('creditcard', 'debitcard', 'cashondelivery', name='paymentenum'), nullable=False),
+    sa.Column('payment_name', sa.String(length=255), nullable=False),
+    sa.Column('payment_number', sa.String(length=255), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
@@ -82,7 +90,7 @@ def upgrade():
     )
     op.create_table('products',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
     sa.Column('price', sa.DECIMAL(precision=10, scale=2), nullable=False),
     sa.Column('stock_qty', sa.Integer(), nullable=False),
     sa.Column('category_id', sa.Integer(), nullable=False),
@@ -142,6 +150,7 @@ def downgrade():
     op.drop_table('avatar_imgs')
     op.drop_table('address_locations')
     op.drop_table('users')
+    op.drop_table('payment_methods')
     op.drop_table('master_questions')
     op.drop_table('categories')
     # ### end Alembic commands ###
