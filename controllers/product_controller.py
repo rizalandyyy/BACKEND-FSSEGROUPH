@@ -5,8 +5,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from models.product_models.product_img import ProductImg
 from models.product_models.product import Product
-from models.user_models.user import User
-from models.user_models.user import Role_division
+from models.user_models.user import User, Role_division
+from models.product_models.list_category import ListCategory
 from decimal import Decimal
 
 productBp = Blueprint('productBp',__name__)
@@ -18,7 +18,7 @@ def get_all_product():
         products = Product.query.all()
         serialized_product = [
             {
-                "name": product.name,
+                "title": product.title,
                 "price": product.price,
                 "stock_qty": product.stock_qty,
                 "category_id": product.category_id,
@@ -56,13 +56,20 @@ def product_by_id(id):
                 "data": {}
             }), 404
         serialized_product = {
-            "name": product.name,
+            "title": product.title,
             "price": product.price,
             "stock_qty": product.stock_qty,
             "category_id": product.category_id,
             "status": product.status.name,
-            "description": product.description
-        }
+            "description": product.description,
+            "list_images": [
+                              {
+                                 "image": img.img 
+                              }
+                              for img in ProductImg.query.filter_by(product_id=product.id).all()
+                            ]
+            }
+        
         return jsonify({
             "success": True,
             "message": "Product retrieved successfully",
@@ -78,9 +85,10 @@ def product_by_id(id):
 @jwt_required()
 def create_product():
     current_user = get_jwt_identity()
-  
+    
     data = request.form
-    required_fields = ['name', 'price', 'stock_qty', 'category_id', 'description', 'status']
+    print(data)
+    required_fields = ['title', 'price', 'stock_qty', 'category_id', 'description', 'status']
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         return jsonify({
@@ -88,7 +96,7 @@ def create_product():
             "message": "Missing required fields: " + ", ".join(missing_fields)
         }), 400
     try:
-        user = User.query.filter_by(userName=current_user['userName']).first()
+        user = User.query.filter_by(id=current_user).first()
         if not user:
             return jsonify({
                 "success": False,
@@ -99,12 +107,31 @@ def create_product():
                 "success": False,
                 "message": "You are not authorized to create a product"
             }), 403
-        
-        new_product = Product(name=data['name'], price=Decimal(data['price']), stock_qty=data['stock_qty'], category_id=data['category_id'], description=data['description'], status=data['status'], seller_id=user.id)
+        print(user)
+        new_product = Product(title=data['title'], price=Decimal(data['price']), stock_qty=str(data['stock_qty']), category_id=data['category_id'], description=data['description'], status=data['status'], seller_id=user.id)
         db.session.add(new_product)
         db.session.commit()
         
+        category = ListCategory.query.filter_by(id=data['category_id']).first()
+        if not category:
+            return jsonify({
+                "success": False,
+                "message": "Category not found"
+            }), 404
+        
+        seller = User.query.filter_by(id=user.id).first()
+        if not seller:
+            return jsonify({
+                "success": False,
+                "message": "Seller not found"
+            }), 404
+        
         product_img = request.files['product_img']
+        if product_img is None:
+            return jsonify({
+                "success": False,
+                "message": "No Product image file uploaded"
+            }), 400
         if product_img.filename is not None:
             filename = secure_filename(product_img.filename)
         mime_type = product_img.mimetype
@@ -114,15 +141,18 @@ def create_product():
         db.session.add(add_img)
         db.session.commit()
         
+        img_url = request.url_root + 'images/' + str(new_product.id) + '/' + filename
+        
         product_data = {
             'id': new_product.id,
-            'name': new_product.name,
+            'title': new_product.title,
             'price': str(new_product.price),
             'stock_qty': new_product.stock_qty,
-            'category_id': new_product.category_id,
+            'category': category.category,
             'description': new_product.description,
             'status': new_product.status.name,
-            'seller_id': new_product.seller_id
+            'seller': seller.userName,
+            'image_url': img_url
         }
         return jsonify({
             "success": True,
@@ -141,7 +171,7 @@ def create_product():
 @jwt_required()
 def addproductimage(id):
     current_user = get_jwt_identity()
-    user = User.query.filter_by(userName=current_user['userName']).first()
+    user = User.query.filter_by(id=current_user).first()
     if not user:
         return jsonify({
             "success": False,
@@ -187,7 +217,7 @@ def addproductimage(id):
 @jwt_required()
 def delete_product(id):
     current_user = get_jwt_identity()
-    user = User.query.filter_by(userName=current_user['userName']).first()
+    user = User.query.filter_by(id=current_user).first()
     if not user:
         return jsonify({
             "success": False,
@@ -224,7 +254,7 @@ def update_product(id):
     current_user = get_jwt_identity()
     
     try:
-        product = Product.query.filter_by(id=id, seller_id=current_user['id']).first()
+        product = Product.query.filter_by(id=id, seller_id=current_user).first()
         if not product:
             return jsonify({
                 "success": False,
@@ -237,7 +267,7 @@ def update_product(id):
         db.session.commit()
         Serialized_product = {
             'id': product.id,
-            'name': product.name,
+            'title': product.title,
             'description': product.description,
             'price': product.price,
             'stock_qty': product.stock_qty,
@@ -255,6 +285,4 @@ def update_product(id):
             "message": "Error updating product",
             "data": {"error": str(e)}
         }), 500
-
-
-
+    

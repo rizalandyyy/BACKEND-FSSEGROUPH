@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_file
 from app import db
 import datetime
 from models.user_models.user import User
@@ -146,16 +146,14 @@ def login():
         user = User.query.filter_by(userName=data['userName']).first()
         if user and user.check_password(data['password']):
             expires = datetime.timedelta(minutes=60)
-            access_token = create_access_token(identity={
-                'id': user.id,
-                'userName': user.userName,
-            }, expires_delta=expires)
+            access_token = create_access_token(identity=str(user.id),expires_delta=expires)
+        
             return jsonify({
                 'success' : True,
                 'message': f'User {user.userName} logged in successfully',
                 'access_token': access_token,
                 'role': user.role.name,
-                'user_id': user.id
+                'user': user.userName
             }), 201
 
         return jsonify({'error': 'Invalid username or password'}), 400
@@ -329,7 +327,7 @@ def addaddress():
             'message': 'Error, wrong input'}), 400
     
     try:            
-        user = User.query.filter_by(userName=current_user['userName']).first()
+        user = User.query.filter_by(id=current_user).first()
         if not user:
             return jsonify({
                 'success' : False,
@@ -353,7 +351,7 @@ def addaddress():
 @jwt_required()
 def deleteaddress(id):
     current_user = get_jwt_identity()
-    user = User.query.filter_by(userName=current_user['userName']).first()
+    user = User.query.filter_by(id=current_user).first()
     if not user:
         return jsonify({
             'success': False,
@@ -381,7 +379,7 @@ def deleteaddress(id):
 def updateuserprofile():
     current_user = get_jwt_identity()
     try:
-        user = User.query.filter_by(userName=current_user['userName']).first()
+        user = User.query.filter_by(id=current_user).first()
         if not user:
             return jsonify({
                 'success' : False,
@@ -411,5 +409,31 @@ def updateuserprofile():
             "success": False,
             "message": "Error updating user profile",
             "error":  str(e)}), 500
+        
+@userBp.route('/userprofile/image/<user_id>', methods=['GET'])
+# @jwt_required()
+def get_user_image(user_id):
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({
+            'success': False,
+            'message': 'User not found'
+        }), 404
+
+    avatar = AvatarImg.query.filter_by(user_id=user_id).first()
+    if avatar is None:
+        return jsonify({
+            'success': False,
+            'message': 'Avatar not found'
+        }), 404
+
+    img_path = os.path.join(current_app.root_path, 'static', 'avatars', str(avatar.id) + '.' + avatar.name.rsplit('.', 1)[-1])
+    if not os.path.exists(img_path):
+        return jsonify({
+            'success': False,
+            'message': 'Avatar not found'
+        }), 404
+
+    return send_file(img_path, mimetype=avatar.mime_type, as_attachment=True, download_name=avatar.name)
 
 

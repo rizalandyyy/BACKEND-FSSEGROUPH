@@ -18,7 +18,8 @@ def create_app():
         SQLALCHEMY_DATABASE_URI=f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv("DB_NAME")}',
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SECRET_KEY="secret!",
-        JWT_SECRET_KEY="secret!"
+        JWT_SECRET_KEY="secret!",
+        UPLOAD_EXTENSIONS=['jpg', 'jpeg', 'png']
     )
 
     # Initialize extensions
