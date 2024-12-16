@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user_models.user import User, Role_division
 from models.transaction_models.payment_method import PaymentMethod
 from models.transaction_models.transaction_detail_customer import TrasactionDetailCustomer
+from models.transaction_models.transaction_detail_seller import TransactionDetailSeller
 from models.transaction_models.discount_code import DiscountCode
 from models.transaction_models.order_product import OrderProduct
 from models.product_models.product import Product
@@ -134,7 +135,23 @@ def create_order_transaction():
             "total_price": transaction_detail.total_price,
             "status": transaction_detail.status
         }
-
+        
+        #create transaction_detail_sellers from transaction_detail_customer
+        transaction_detail_seller = []
+        for order_product in order_products:
+            transaction_detail_seller.append(
+                TransactionDetailSeller(
+                    order_id=transaction_detail.id,
+                    seller_id=order_product.seller_id,
+                    product_id=order_product.product_id,
+                    total_price=order_product.sum_price,
+                    status="pending"
+                )
+            )
+        
+        db.session.add_all(transaction_detail_seller)
+        db.session.commit()    
+        
         return jsonify(
             {
                 "success": True,
@@ -153,7 +170,7 @@ def create_order_transaction():
     finally:
         db.session.close()
         
-@transactionBp.route('/transaction', methods=['GET'])
+@transactionBp.route('/historytransaction', methods=['GET'])
 @jwt_required()
 def get_transaction():
     current_user = get_jwt_identity()
@@ -215,18 +232,33 @@ def get_transaction():
         "data": serialized_transactions
     })
     
-# @transactionBp.route('/transaction/<int:transaction_id>', methods=['POST'])
-# @jwt_required()
-# def update_transaction(transaction_id):
-#     current_user = get_jwt_identity()
-#     user = User.query.filter_by(id=current_user).first()
-#     if not user:
-#         return jsonify({
-#             "success": False,
-#             "message": "User not found"
-#         }), 404
-#     if user.role not in [Role_division.seller]:
-#         return jsonify({
-#             "success": False,
-#             "message": "You are not authorized to update transaction"
-#         }), 403
+@transactionBp.route('/transaction/<int:transaction_id>', methods=['POST'])
+@jwt_required()
+def update_transaction(transaction_id):
+    current_user = get_jwt_identity()
+    data = request.get_json()
+    user = User.query.filter_by(id=current_user).first()
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "User not found"
+        }), 404
+    if user.role not in [Role_division.seller]:
+        return jsonify({
+            "success": False,
+            "message": "You are not authorized to update transaction"
+        }), 403
+    transaction_detail_sellers = TransactionDetailSeller.query.filter_by(order_id=transaction_id).all()
+    for transaction_detail_seller in transaction_detail_sellers:
+        if transaction_detail_seller.seller_id == user.id:
+            transaction_detail_seller.status = data.get('status')
+            db.session.commit()
+        else:
+            return jsonify({
+                "success": False,
+                "message": "You are not authorized to update this product"
+            }), 403
+    return jsonify({
+        "success": True,
+        "message": "Transaction updated successfully"
+    })

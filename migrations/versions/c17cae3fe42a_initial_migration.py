@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 87d2370e424c
+Revision ID: c17cae3fe42a
 Revises: 
-Create Date: 2024-12-15 19:18:34.368525
+Create Date: 2024-12-16 17:22:21.758750
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '87d2370e424c'
+revision = 'c17cae3fe42a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -68,9 +68,8 @@ def upgrade():
     op.create_table('avatar_imgs',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('img', sa.LargeBinary(), nullable=True),
-    sa.Column('name', sa.String(length=255), nullable=True),
-    sa.Column('mime_type', sa.String(length=50), nullable=True),
+    sa.Column('file_path', sa.String(length=255), nullable=False),
+    sa.Column('file_name', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -117,9 +116,8 @@ def upgrade():
     op.create_table('product_imgs',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('product_id', sa.Integer(), nullable=False),
-    sa.Column('img', sa.LargeBinary(), nullable=False),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('mime_type', sa.String(length=50), nullable=False),
+    sa.Column('file_path', sa.String(length=255), nullable=False),
+    sa.Column('file_name', sa.String(length=255), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['product_id'], ['products.id'], ),

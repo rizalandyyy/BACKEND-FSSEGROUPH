@@ -9,7 +9,7 @@ import enum
 class StatusEnum(enum.Enum):
     pending = "pending",
     complete = "complete",
-    failed = "failed"
+    rejected = "rejected"
 
 
 class TrasactionDetailCustomer(db.Model):

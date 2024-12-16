@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, send_file
+from flask import Blueprint, request, jsonify, current_app, send_file, url_for
 from app import db
 import datetime
 from models.user_models.user import User
@@ -9,6 +9,7 @@ from models.user_models.address_location import AddressLocation
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from bcrypt import gensalt, hashpw
 import os
+import mimetypes
 
 
 userBp = Blueprint('userBp',__name__)
@@ -73,12 +74,16 @@ def register():
                 "success": False,
                 "message": "Avatar image not found"}), 400
 
-        with open(avatar_path, 'rb') as f:
-            avatar_img_data = f.read()
-
-        avatar_img = AvatarImg(user_id=new_user.id, img=avatar_img_data)
+        mime_type = mimetypes.guess_type(avatar_path)[0]
+        avatar_img = AvatarImg(user_id=new_user.id, file_path=avatar_path, file_name=avatar_image, mime_type=mime_type)
         db.session.add(avatar_img)
+        db.session.flush()  # To generate the new avatar's ID
 
+        # Create a URL for the avatar image
+        avatar_img_url = f"/user/avatar/{new_user.id}/{avatar_img.id}"
+
+        # Store the URL in the database
+        setattr(avatar_img, 'img_url', avatar_img_url)
         db.session.commit()
         return jsonify({
             "success": True,
@@ -112,7 +117,8 @@ def userprofile():
                         'address': address.address
                     }
                     for address in AddressLocation.query.filter_by(user_id=user.id).all()
-                ]
+                ],
+                'avatarImgUrl': url_for('userBp.get_user_image', user_id=user.id, _external=True)
             }
             for user in users
         ]
@@ -153,7 +159,7 @@ def login():
                 'message': f'User {user.userName} logged in successfully',
                 'access_token': access_token,
                 'role': user.role.name,
-                'user': user.userName
+                'user': user.id
             }), 201
 
         return jsonify({'error': 'Invalid username or password'}), 400
@@ -173,6 +179,10 @@ def get_user_profile(user_id):
             return jsonify({
                 'success' : False,
                 'message': 'User not found'}), 404
+        avatar_img = AvatarImg.query.filter_by(user_id=user.id).first()
+        avatar_img_url = None
+        if avatar_img:
+            avatar_img_url = url_for('userBp.get_user_avatar_image', user_id=user.id, avatar_id=avatar_img.id, _external=True)
         return jsonify({
             'success' : True,
             'message': 'User retrieved successfully',
@@ -185,6 +195,7 @@ def get_user_profile(user_id):
                 'phoneNumber': user.phoneNumber,
                 'gender': user.gender.value,
                 'role': user.role.value,
+                'avatar_img_url': avatar_img_url,
                 'addresses': [
                     {
                         'address': address.address
@@ -199,6 +210,38 @@ def get_user_profile(user_id):
         "message": "Error retrieving user",
         "data": {"error": str(e)}}), 404
             
+@userBp.route('/userprofile/image/<user_id>', methods=['GET'])
+def get_user_avatar(user_id):
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({
+            'success': False,
+            'message': 'User not found'
+        }), 404
+
+    avatar = AvatarImg.query.filter_by(user_id=user_id).first()
+    if avatar is None:
+        return jsonify({
+            'success': False,
+            'message': 'Avatar not found'
+        }), 404
+
+    img_path = avatar.file_path
+    if not os.path.exists(img_path):
+        return jsonify({
+            'success': False,
+            'message': 'Avatar not found'
+        }), 404
+
+    return send_file(img_path, mimetype=avatar.mime_type, as_attachment=False, download_name=avatar.file_name)
+
+@userBp.route('/user/avatar/<user_id>/<avatar_id>')
+def get_user_avatar_image(user_id, avatar_id):
+    avatar_img = AvatarImg.query.filter_by(user_id=user_id, id=avatar_id).first()
+    if avatar_img:
+        return send_file(avatar_img.file_path, mimetype=avatar_img.mime_type)
+    else:
+        return jsonify({"error": "Avatar image not found"}), 404
 
 #if user forgot password
 @userBp.route('/login/forgotpassword', methods=['POST'])
@@ -410,30 +453,5 @@ def updateuserprofile():
             "message": "Error updating user profile",
             "error":  str(e)}), 500
         
-@userBp.route('/userprofile/image/<user_id>', methods=['GET'])
-# @jwt_required()
-def get_user_image(user_id):
-    user = User.query.get(user_id)
-    if user is None:
-        return jsonify({
-            'success': False,
-            'message': 'User not found'
-        }), 404
-
-    avatar = AvatarImg.query.filter_by(user_id=user_id).first()
-    if avatar is None:
-        return jsonify({
-            'success': False,
-            'message': 'Avatar not found'
-        }), 404
-
-    img_path = os.path.join(current_app.root_path, 'static', 'avatars', str(avatar.id) + '.' + avatar.name.rsplit('.', 1)[-1])
-    if not os.path.exists(img_path):
-        return jsonify({
-            'success': False,
-            'message': 'Avatar not found'
-        }), 404
-
-    return send_file(img_path, mimetype=avatar.mime_type, as_attachment=True, download_name=avatar.name)
 
 

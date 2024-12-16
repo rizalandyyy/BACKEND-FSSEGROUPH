@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app, send_file
 from models.product_models.product import Product
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -8,6 +8,7 @@ from models.product_models.product import Product
 from models.user_models.user import User, Role_division
 from models.product_models.list_category import ListCategory
 from decimal import Decimal
+import os
 
 productBp = Blueprint('productBp',__name__)
 
@@ -16,6 +17,7 @@ productBp = Blueprint('productBp',__name__)
 def get_all_product():
     try:
         products = Product.query.all()
+        
         serialized_product = [
             {
                 "title": product.title,
@@ -26,10 +28,12 @@ def get_all_product():
                 "description": product.description,
                 "list_images": [
                               {
-                                 "image": img.img 
+                                 "image_url": img.img_url 
                               }
                               for img in ProductImg.query.filter_by(product_id=product.id).all()
-                            ]
+                            ],
+                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+                
             }
             for product in products
         ]
@@ -44,7 +48,40 @@ def get_all_product():
             "message": "Error retrieving products",
             "data": {"error": str(e)}
         })
-
+@productBp.route('/product/seller/<user_id>', methods=['GET'])
+def product_by_user(user_id):
+    try:
+        products = Product.query.filter_by(seller_id=user_id).all()        
+        serialized_product = [
+            {
+                "title": product.title,
+                "price": product.price,
+                "stock_qty": product.stock_qty,
+                "category_id": product.category_id,
+                "status": product.status.name,
+                "description": product.description,
+                "list_images": [
+                              {
+                                 "image_url": img.img_url
+                              }
+                              for img in ProductImg.query.filter_by(product_id=product.id).all()
+                            ],
+                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+            }
+            for product in products
+        ]
+        return jsonify({
+            "success": True,
+            "message": "Products retrieved successfully",
+            "data": serialized_product
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "Error retrieving products",
+            "data": {"error": str(e)}
+        }), 500
+        
 @productBp.route('/product/<int:id>', methods=['GET'])
 def product_by_id(id):
     try:
@@ -55,6 +92,8 @@ def product_by_id(id):
                 "message": "Product not found",
                 "data": {}
             }), 404
+            
+        
         serialized_product = {
             "title": product.title,
             "price": product.price,
@@ -64,12 +103,13 @@ def product_by_id(id):
             "description": product.description,
             "list_images": [
                               {
-                                 "image": img.img 
+                                 "image_url": img.img_url
                               }
                               for img in ProductImg.query.filter_by(product_id=product.id).all()
-                            ]
-            }
-        
+                            ],
+            "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+        }
+             
         return jsonify({
             "success": True,
             "message": "Product retrieved successfully",
@@ -97,20 +137,11 @@ def create_product():
         }), 400
     try:
         user = User.query.filter_by(id=current_user).first()
-        if not user:
-            return jsonify({
-                "success": False,
-                "message": "User not found"
-            }), 404
-        if user.role not in [Role_division.seller]:
+        if not user or user.role not in [Role_division.seller]:
             return jsonify({
                 "success": False,
                 "message": "You are not authorized to create a product"
             }), 403
-        print(user)
-        new_product = Product(title=data['title'], price=Decimal(data['price']), stock_qty=str(data['stock_qty']), category_id=data['category_id'], description=data['description'], status=data['status'], seller_id=user.id)
-        db.session.add(new_product)
-        db.session.commit()
         
         category = ListCategory.query.filter_by(id=data['category_id']).first()
         if not category:
@@ -119,29 +150,31 @@ def create_product():
                 "message": "Category not found"
             }), 404
         
-        seller = User.query.filter_by(id=user.id).first()
-        if not seller:
-            return jsonify({
-                "success": False,
-                "message": "Seller not found"
-            }), 404
+                     
+        new_product = Product(title=data['title'], price=Decimal(data['price']), stock_qty=str(data['stock_qty']), category_id=data['category_id'], description=data['description'], status=data['status'], seller_id=user.id)
+        
+        db.session.add(new_product)
+        db.session.commit()    
         
         product_img = request.files['product_img']
-        if product_img is None:
+        if not product_img or not product_img.filename:
             return jsonify({
                 "success": False,
                 "message": "No Product image file uploaded"
             }), 400
-        if product_img.filename is not None:
-            filename = secure_filename(product_img.filename)
-        mime_type = product_img.mimetype
-        img_data = product_img.read()
         
-        add_img = ProductImg(product_id=new_product.id, img=img_data, name=filename, mime_type=mime_type)
+        filename = secure_filename(product_img.filename)
+        file_path = os.path.join(current_app.root_path, 'images', str(new_product.id))
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        file_path = os.path.join(file_path, filename)
+        product_img.save(file_path)
+
+        img_url = f"{request.url_root}images/{new_product.id}/{filename}"
+        add_img = ProductImg(product_id=new_product.id, file_path=file_path, file_name=filename, mime_type=product_img.mimetype, img_url=img_url)
+        
         db.session.add(add_img)
         db.session.commit()
-        
-        img_url = request.url_root + 'images/' + str(new_product.id) + '/' + filename
         
         product_data = {
             'id': new_product.id,
@@ -151,7 +184,7 @@ def create_product():
             'category': category.category,
             'description': new_product.description,
             'status': new_product.status.name,
-            'seller': seller.userName,
+            'seller': user.userName,
             'image_url': img_url
         }
         return jsonify({
@@ -164,8 +197,12 @@ def create_product():
             "success": False,
             "message": "Error creating product",
             "data": {"error": str(e)}
-        })
-    
+        }), 500
+
+@productBp.route('/images/<int:product_id>/<filename>')
+def serve_image(product_id, filename):
+    file_path = os.path.join(current_app.root_path, 'images', str(product_id), filename)
+    return send_file(file_path, mimetype='image/jpeg')
     
 @productBp.route('/product/<int:id>/addimage', methods=['POST'])
 @jwt_required()
@@ -183,28 +220,31 @@ def addproductimage(id):
             "success": False,
             "message": "Product not found or you don't have permission to edit"
         }), 404
-    add_img = request.files['product_img']
+    add_img = request.files.get('product_img')
     if not add_img:
         return jsonify({
             "success": False,
-            "message": "Error: No image file uploaded"}), 400
-    if add_img.filename is not None:
-        filename = secure_filename(add_img.filename)
-    mime_type = add_img.mimetype
-    img_data = add_img.read()
+            "message": "Error: No image file uploaded"
+        }), 400
+
+    filename = secure_filename(add_img.filename) if add_img.filename else ''
+    file_path = os.path.join(current_app.root_path, 'images', str(product.id))
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+    file_path = os.path.join(file_path, filename)
     
-    # Decode the image data
-    img_data = img_data.decode('utf-8')
+    add_img.save(file_path)
+    img_url = f"{request.url_root}images/{product.id}/{filename}"
     
-    add_img = ProductImg(product_id=product.id, img=img_data, name=filename, mime_type=mime_type)
-    db.session.add(add_img)
+    new_img = ProductImg(product_id=product.id, file_path=file_path, file_name=filename, mime_type=add_img.mimetype, img_url=img_url)
+    db.session.add(new_img)
     db.session.commit()
-    
+
     product_img_data = {
-        'id': add_img.id,
-        'product_id': add_img.product_id,
-        'name': add_img.name,
-        'mime_type': add_img.mime_type
+        'id': new_img.id,
+        'product_id': new_img.product_id,
+        'name': new_img.file_name,
+        'img_url': new_img.img_url
     }
     
     return jsonify({
