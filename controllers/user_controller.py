@@ -188,7 +188,7 @@ def get_user_profile(user_id):
         avatar_img = AvatarImg.query.filter_by(user_id=user.id).first()
         avatar_img_url = None
         if avatar_img:
-            avatar_img_url = url_for('userBp.get_user_avatar_image', user_id=user.id, avatar_id=avatar_img.id, _external=True)
+            avatar_img_url = url_for('userBp.get_user_avatar_image', user_id=user.id, file_name=avatar_img.file_name, _external=True)
         return jsonify({
             'success' : True,
             'message': 'User retrieved successfully',
