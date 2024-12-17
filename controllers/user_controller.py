@@ -97,10 +97,17 @@ def register():
             "data": {"error": str(e)}
         }), 500
 
-@userBp.route('/userprofile' , methods=['GET'])
+@userBp.route('/userprofile', methods=['GET'])
 def userprofile():
     try:
         users = User.query.all()
+        
+        def get_avatar_img_url(user_id):
+            avatar_img = AvatarImg.query.filter_by(user_id=user_id).first()
+            if avatar_img:
+                return url_for('userBp.get_user_avatar_image', user_id=user_id, avatar_id=avatar_img.id, _external=True)
+            else:
+                return None
         
         serialized_users = [
             {
@@ -118,7 +125,7 @@ def userprofile():
                     }
                     for address in AddressLocation.query.filter_by(user_id=user.id).all()
                 ],
-                'avatarImgUrl': url_for('userBp.get_user_avatar_image', user_id=user.id, _external=True)
+                'avatarImgUrl': get_avatar_img_url(user.id)
             }
             for user in users
         ]
@@ -133,7 +140,6 @@ def userprofile():
             "message": "Error retrieving user",
             "data": {"error": str(e)}
         }), 500
-
 # login user
 @userBp.route('/login', methods=['POST'])
 def login():
