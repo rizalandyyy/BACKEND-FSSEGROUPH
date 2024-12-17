@@ -66,7 +66,7 @@ def register():
         secret_question = SecretQuestion(user_id=new_user.id, question_id=master_question.id, answer=data['answer'])
         db.session.add(secret_question)
 
-        avatar_image = 'blank-male-avatar.png' if data['gender'] == 'Male' else 'blank-female-avatar.png'
+        avatar_image = 'blank-male-avatar.png' if data['gender'] == 'male' else 'blank-female-avatar.png'
         avatar_path = os.path.join(current_app.root_path, 'asset', avatar_image)
 
         if not os.path.isfile(avatar_path):
