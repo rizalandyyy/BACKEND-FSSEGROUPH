@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, send_file, url_for
+from flask import Blueprint, request, jsonify, current_app, send_file, url_for, send_from_directory
 from app import db
 import datetime
 from models.user_models.user import User
@@ -239,7 +239,7 @@ def get_user_avatar(user_id):
 def get_user_avatar_image(user_id, avatar_id):
     avatar_img = AvatarImg.query.filter_by(user_id=user_id, id=avatar_id).first()
     if avatar_img:
-        return send_file(avatar_img.file_path, mimetype=avatar_img.mime_type)
+        return send_from_directory(os.path.dirname(avatar_img.file_path), os.path.basename(avatar_img.file_path))
     else:
         return jsonify({"error": "Avatar image not found"}), 404
 
