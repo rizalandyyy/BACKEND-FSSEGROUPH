@@ -67,7 +67,7 @@ def discount():
             "data": {"error": str(e)}
         }), 500
 
-@discountBp.route('/discount' , methods = ['POST'])
+@discountBp.route('/discount', methods=['POST'])
 @jwt_required()
 def adddiscount():
     current_user = get_jwt_identity()
@@ -102,13 +102,8 @@ def adddiscount():
             "message": "Expiration date must be in the future"
         }), 400
                            
-                   
-    new_discount = DiscountCode(**data, seller_id=user.id)
-            
-    if expiration_date > today:
-        new_discount.status = 'available'
-    else:
-        new_discount.status = 'expired'
+    status = 'available' if expiration_date > today else 'expired'
+    new_discount = DiscountCode(code=data['code'], discount_value=data['discount_value'], expiration_date=expiration_date, status=status, seller_id=user.id)
             
     db.session.add(new_discount)   
     db.session.commit()
@@ -166,6 +161,14 @@ def deletediscount(id):
 def updatediscount(id):
     current_user = get_jwt_identity()
     data = request.get_json()
+    required_fields = ['code', 'discount_value', 'expiration_date']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({
+            "success": False,
+            "message": "Missing required fields: " + ", ".join(missing_fields)
+        }), 400
+    
     try:
         user = User.query.filter_by(id=current_user).first()
         if not user:
@@ -187,16 +190,14 @@ def updatediscount(id):
                 "message": "Discount not found"
             }), 404
             
-        for key, value in data.items():
-            if hasattr(discount, key):
-                setattr(discount, key, value)
-        
-        discount.expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d').replace(tzinfo=pytz.utc)    
+        expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d').replace(tzinfo=pytz.utc)
         today = datetime.now(pytz.utc)
-        if discount.expiration_date > today:
-            discount.status = 'available'
-        else:
-            discount.status = 'expired'
+        status = 'available' if expiration_date > today else 'expired'
+        
+        discount.code = data['code']
+        discount.discount_value = data['discount_value']
+        discount.expiration_date = expiration_date
+        discount.status = status
         
         db.session.commit()
         
@@ -249,15 +250,25 @@ def refreshdiscount():
                 
         today = datetime.now(timezone.utc)
         for d in discount:
-            if d.expiration_date < today:
-                d.status = 'expired'
-            else:
-                d.status = 'available'
+            d.status = 'expired' if d.expiration_date < today else 'available'
         db.session.commit()
+        
+        serialized_discount = [
+            {
+                'id': d.id,
+                'code': d.code,
+                'discount_value': d.discount_value,
+                'expiration_date': d.expiration_date,
+                'status': d.status,
+                'seller_id': d.seller_id
+            }
+            for d in discount
+        ]
+        
         return jsonify({
             "success": True,
             "message": "Discount status refreshed successfully",
-            "data": discount
+            "data": serialized_discount
         }), 200
     except Exception as e:
         return jsonify({

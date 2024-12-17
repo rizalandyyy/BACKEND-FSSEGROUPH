@@ -9,5 +9,8 @@ from .product_models.product_img import *
 from .product_models.list_category import *
 from .transaction_models.discount_code import *
 from .transaction_models.payment_method import *
+from .transaction_models.order_product import *
+from .transaction_models.transaction_detail_customer import *
+from .transaction_models.transaction_detail_seller import *
 
 
