@@ -118,7 +118,7 @@ def userprofile():
                     }
                     for address in AddressLocation.query.filter_by(user_id=user.id).all()
                 ],
-                'avatarImgUrl': url_for('userBp.get_user_image', user_id=user.id, _external=True)
+                'avatarImgUrl': url_for('userBp.get_user_avatar_image', user_id=user.id, _external=True)
             }
             for user in users
         ]
@@ -159,7 +159,7 @@ def login():
                 'message': f'User {user.userName} logged in successfully',
                 'access_token': access_token,
                 'role': user.role.name,
-                'user': user.id
+                'user_id': user.id
             }), 201
 
         return jsonify({'error': 'Invalid username or password'}), 400
