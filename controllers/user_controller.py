@@ -80,7 +80,7 @@ def register():
         db.session.flush()  # To generate the new avatar's ID
 
         # Create a URL for the avatar image
-        avatar_img_url = f"/user/avatar/{new_user.id}/{avatar_img.id}"
+        avatar_img_url = f"/user/avatar/{avatar_img.user_id}/{avatar_img.file_name}"
 
         # Store the URL in the database
         setattr(avatar_img, 'img_url', avatar_img_url)
@@ -105,7 +105,7 @@ def userprofile():
         def get_avatar_img_url(user_id):
             avatar_img = AvatarImg.query.filter_by(user_id=user_id).first()
             if avatar_img:
-                return url_for('userBp.get_user_avatar_image', user_id=user_id, avatar_id=avatar_img.id, _external=True)
+                return url_for('userBp.get_user_avatar_image', user_id=user_id, file_name=avatar_img.file_name, _external=True)
             else:
                 return None
         
@@ -241,9 +241,9 @@ def get_user_avatar(user_id):
 
     return send_file(img_path, mimetype=avatar.mime_type, as_attachment=False, download_name=avatar.file_name)
 
-@userBp.route('/user/avatar/<user_id>/<avatar_id>')
-def get_user_avatar_image(user_id, avatar_id):
-    avatar_img = AvatarImg.query.filter_by(user_id=user_id, id=avatar_id).first()
+@userBp.route('/user/avatar/<user_id>/<file_name>')
+def get_user_avatar_image(user_id, file_name):
+    avatar_img = AvatarImg.query.filter_by(user_id=user_id, file_name=file_name).first()
     if avatar_img:
         return send_from_directory(os.path.dirname(avatar_img.file_path), os.path.basename(avatar_img.file_path))
     else:
