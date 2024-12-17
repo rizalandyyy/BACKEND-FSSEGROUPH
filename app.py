@@ -35,6 +35,7 @@ def create_app():
     from controllers.discount_controller import discountBp
     from controllers.transaction_controller import transactionBp
     from controllers.category_controller import categoryBp
+    from controllers.review_controller import reviewBp
     
 
     app.register_blueprint(userBp)
@@ -43,6 +44,7 @@ def create_app():
     app.register_blueprint(discountBp)
     app.register_blueprint(transactionBp)
     app.register_blueprint(categoryBp)
+    app.register_blueprint(reviewBp)
 
 
     print('connected to database')

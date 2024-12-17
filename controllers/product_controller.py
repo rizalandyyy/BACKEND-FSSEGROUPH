@@ -7,6 +7,7 @@ from models.product_models.product_img import ProductImg
 from models.product_models.product import Product
 from models.user_models.user import User, Role_division
 from models.product_models.list_category import ListCategory
+from models.product_models.review import review
 from decimal import Decimal
 import os
 
@@ -21,18 +22,16 @@ def get_all_product():
         serialized_product = [
             {
                 "title": product.title,
+                "ID" : product.id,
                 "price": product.price,
                 "stock_qty": product.stock_qty,
-                "category_id": product.category_id,
+                "category": category.category if (category := ListCategory.query.get(product.category_id)) else None,
                 "status": product.status.name,
                 "description": product.description,
-                "list_images": [
-                              {
-                                 "image_url": img.img_url 
-                              }
-                              for img in ProductImg.query.filter_by(product_id=product.id).all()
-                            ],
-                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+                "image": url.img_url if (url := ProductImg.query.filter_by(product_id=product.id).first()) else None,
+                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None,
+                "rating": (sum(r.rating for r in review.query.filter_by(product_id=product.id).all()) /
+                           review.query.filter_by(product_id=product.id).count()) if review.query.filter_by(product_id=product.id).count() > 0 else None
                 
             }
             for product in products
@@ -55,18 +54,16 @@ def product_by_user(user_id):
         serialized_product = [
             {
                 "title": product.title,
+                "ID" : product.id,
                 "price": product.price,
                 "stock_qty": product.stock_qty,
-                "category_id": product.category_id,
+                "category": category.category if (category := ListCategory.query.get(product.category_id)) else None,
                 "status": product.status.name,
                 "description": product.description,
-                "list_images": [
-                              {
-                                 "image_url": img.img_url
-                              }
-                              for img in ProductImg.query.filter_by(product_id=product.id).all()
-                            ],
-                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+                "image": url.img_url if (url := ProductImg.query.filter_by(product_id=product.id).first()) else None,
+                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None,
+                "rating": (sum(r.rating for r in review.query.filter_by(product_id=product.id).all()) /
+                           review.query.filter_by(product_id=product.id).count()) if review.query.filter_by(product_id=product.id).count() > 0 else None
             }
             for product in products
         ]
@@ -96,18 +93,16 @@ def product_by_id(id):
         
         serialized_product = {
             "title": product.title,
-            "price": product.price,
-            "stock_qty": product.stock_qty,
-            "category_id": product.category_id,
-            "status": product.status.name,
-            "description": product.description,
-            "list_images": [
-                              {
-                                 "image_url": img.img_url
-                              }
-                              for img in ProductImg.query.filter_by(product_id=product.id).all()
-                            ],
-            "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None
+                "ID" : product.id,
+                "price": product.price,
+                "stock_qty": product.stock_qty,
+                "category": category.category if (category := ListCategory.query.get(product.category_id)) else None,
+                "status": product.status.name,
+                "description": product.description,
+                "image": url.img_url if (url := ProductImg.query.filter_by(product_id=product.id).first()) else None,
+                "seller": seller.userName if (seller := User.query.get(product.seller_id)) else None,
+                "rating": (sum(r.rating for r in review.query.filter_by(product_id=product.id).all()) /
+                           review.query.filter_by(product_id=product.id).count()) if review.query.filter_by(product_id=product.id).count() > 0 else None
         }
              
         return jsonify({
@@ -203,55 +198,56 @@ def create_product():
 def serve_image(product_id, filename):
     file_path = os.path.join(current_app.root_path, 'images', str(product_id), filename)
     return send_file(file_path, mimetype='image/jpeg')
-    
-@productBp.route('/product/<int:id>/addimage', methods=['POST'])
-@jwt_required()
-def addproductimage(id):
-    current_user = get_jwt_identity()
-    user = User.query.filter_by(id=current_user).first()
-    if not user:
-        return jsonify({
-            "success": False,
-            "message": "User not found"
-        }), 404
-    product = Product.query.filter_by(id=id, seller_id=user.id).first()
-    if not product:
-        return jsonify({
-            "success": False,
-            "message": "Product not found or you don't have permission to edit"
-        }), 404
-    add_img = request.files.get('product_img')
-    if not add_img:
-        return jsonify({
-            "success": False,
-            "message": "Error: No image file uploaded"
-        }), 400
 
-    filename = secure_filename(add_img.filename) if add_img.filename else ''
-    file_path = os.path.join(current_app.root_path, 'images', str(product.id))
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
-    file_path = os.path.join(file_path, filename)
-    
-    add_img.save(file_path)
-    img_url = f"{request.url_root}images/{product.id}/{filename}"
-    
-    new_img = ProductImg(product_id=product.id, file_path=file_path, file_name=filename, mime_type=add_img.mimetype, img_url=img_url)
-    db.session.add(new_img)
-    db.session.commit()
+# add new image to existing product (Not Used)
+# @productBp.route('/product/<int:id>/addimage', methods=['POST'])
+# @jwt_required()
+# def addproductimage(id):
+#     current_user = get_jwt_identity()
+#     user = User.query.filter_by(id=current_user).first()
+#     if not user:
+#         return jsonify({
+#             "success": False,
+#             "message": "User not found"
+#         }), 404
+#     product = Product.query.filter_by(id=id, seller_id=user.id).first()
+#     if not product:
+#         return jsonify({
+#             "success": False,
+#             "message": "Product not found or you don't have permission to edit"
+#         }), 404
+#     add_img = request.files.get('product_img')
+#     if not add_img:
+#         return jsonify({
+#             "success": False,
+#             "message": "Error: No image file uploaded"
+#         }), 400
 
-    product_img_data = {
-        'id': new_img.id,
-        'product_id': new_img.product_id,
-        'name': new_img.file_name,
-        'img_url': new_img.img_url
-    }
+#     filename = secure_filename(add_img.filename) if add_img.filename else ''
+#     file_path = os.path.join(current_app.root_path, 'images', str(product.id))
+#     if not os.path.exists(file_path):
+#         os.makedirs(file_path)
+#     file_path = os.path.join(file_path, filename)
     
-    return jsonify({
-        "success": True,
-        "message": "Product image added successfully",
-        "data": product_img_data
-    }), 201
+#     add_img.save(file_path)
+#     img_url = f"{request.url_root}images/{product.id}/{filename}"
+    
+#     new_img = ProductImg(product_id=product.id, file_path=file_path, file_name=filename, mime_type=add_img.mimetype, img_url=img_url)
+#     db.session.add(new_img)
+#     db.session.commit()
+
+#     product_img_data = {
+#         'id': new_img.id,
+#         'product_id': new_img.product_id,
+#         'name': new_img.file_name,
+#         'img_url': new_img.img_url
+#     }
+    
+#     return jsonify({
+#         "success": True,
+#         "message": "Product image added successfully",
+#         "data": product_img_data
+#     }), 201
 
 @productBp.route('/product/<int:id>', methods=['DELETE'])
 @jwt_required()
