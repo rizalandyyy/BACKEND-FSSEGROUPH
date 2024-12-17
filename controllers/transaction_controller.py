@@ -87,8 +87,6 @@ def create_order_transaction():
             )
 
             order_products.append(order_product)
-            db.session.add(order_product)
-            db.session.commit()
 
         #Apply discount
         discount_value = discount.discount_value
@@ -96,7 +94,7 @@ def create_order_transaction():
         
         transaction_detail = TrasactionDetailCustomer(
             user_id=user.id,
-            payment_id=payment_method.payment_method,
+            payment_id=payment_method.id,
             total_price=total_price,
             status="pending"
         )
@@ -133,7 +131,7 @@ def create_order_transaction():
             "user_id": transaction_detail.user_id,
             "payment_id": transaction_detail.payment_id,
             "total_price": transaction_detail.total_price,
-            "status": transaction_detail.status
+            "status": transaction_detail.status.value
         }
         
         #create transaction_detail_sellers from transaction_detail_customer
@@ -210,7 +208,7 @@ def get_transaction():
                 "seller": seller.userName
             }
             serialized_order_products.append(serialized_order_product)
-        payment_method = PaymentMethod.query.filter_by(payment_method=transaction.payment_id).first()
+        payment_method = PaymentMethod.query.filter_by(id=transaction.payment_id).first()
         if not payment_method:  
             return jsonify({
                 "success": False,
@@ -218,11 +216,13 @@ def get_transaction():
             }), 404
         
         serialized_transaction = {
-            "id": transaction.id,
+            "Transaction_id": transaction.id,
             "customer": user.userName,
-            "payment_method": payment_method.payment_method,
+            "payment_method": payment_method.payment_method.value,
+            "Bank" : payment_method.payment_name,
             "total_price": transaction.total_price,
-            "status": transaction.status,
+            "status": transaction.status.value,
+            "date": transaction.updated_at if transaction.updated_at else transaction.created_at,
             "order_products": serialized_order_products
         }
         serialized_transactions.append(serialized_transaction)
@@ -231,7 +231,40 @@ def get_transaction():
         "message": "Transaction retrieved successfully",
         "data": serialized_transactions
     })
-    
+#create route to cek transaction detail for seller, so seller can cek each product in transacton detail seller
+@transactionBp.route('/transaction/seller', methods=['GET'])
+@jwt_required()
+def get_transaction_detail(seller_id):
+    current_user = get_jwt_identity()
+    user = User.query.filter_by(id=current_user).first()
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "User not found"
+        }), 404
+    if user.role not in [Role_division.seller]:
+        return jsonify({
+            "success": False,
+            "message": "You are not authorized to get transaction"
+        }), 403
+    transaction_detail_sellers = TransactionDetailSeller.query.filter_by(seller_id=user.id).all()
+    serialized_transaction_detail_sellers = []
+    for transaction_detail_seller in transaction_detail_sellers:
+        serialized_transaction_detail_seller = {
+            "id": transaction_detail_seller.id,
+            "order_id": transaction_detail_seller.order_id,
+            "product_id": transaction_detail_seller.product_id,
+            "total_price": transaction_detail_seller.total_price,
+            "status": transaction_detail_seller.status.value
+        }
+        serialized_transaction_detail_sellers.append(serialized_transaction_detail_seller)
+    return jsonify({
+        "success": True,
+        "message": "Transaction detail retrieved successfully",
+        "data": serialized_transaction_detail_sellers
+    })
+
+
 @transactionBp.route('/transaction/<int:transaction_id>', methods=['POST'])
 @jwt_required()
 def update_transaction(transaction_id):

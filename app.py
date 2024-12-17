@@ -33,12 +33,16 @@ def create_app():
     from controllers.master_question_controller import masterBp
     from controllers.product_controller import productBp
     from controllers.discount_controller import discountBp
+    from controllers.transaction_controller import transactionBp
+    from controllers.category_controller import categoryBp
     
 
     app.register_blueprint(userBp)
     app.register_blueprint(masterBp)
     app.register_blueprint(productBp)
     app.register_blueprint(discountBp)
+    app.register_blueprint(transactionBp)
+    app.register_blueprint(categoryBp)
 
 
     print('connected to database')
